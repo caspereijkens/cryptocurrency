@@ -171,3 +171,140 @@ func TestDivide(t *testing.T) {
 		t.Error("Expected different fields error, but got no error")
 	}
 }
+
+func TestNewPoint(t *testing.T) {
+	// Test case 1: Valid input values
+	x := big.NewInt(-1)
+	y := big.NewInt(-1)
+	a := big.NewInt(5)
+	b := big.NewInt(7)
+	_, err := NewPoint(x, y, a, b)
+	if err != nil {
+		t.Errorf("NewPoint returned an error for valid input: %v", err)
+	}
+
+	// Test case 2: Invalid input values
+	y = big.NewInt(-2)
+	_, err = NewPoint(x, y, a, b)
+	if err == nil {
+		t.Errorf("NewPoint did not return an error for invalid input: %v", err)
+	}
+
+	// Test case 3: Point at infintity
+	var x_inf *big.Int
+	var y_inf *big.Int
+	p_inf, err := NewPoint(x_inf, y_inf, a, b)
+	if err != nil {
+		t.Errorf("NewPoint did not return an error for invalid input: %v", err)
+	}
+	if !p_inf.Equal(&Point{nil, nil, a, b}) {
+		t.Error("NewPoint is not equal to the point at infinity")
+	}
+}
+
+func TestPointEqual(t *testing.T) {
+	// Test equality of two field elements.
+	p1, _ := NewPoint(big.NewInt(-1), big.NewInt(-1), big.NewInt(5), big.NewInt(7))
+	q1, _ := NewPoint(big.NewInt(-1), big.NewInt(-1), big.NewInt(5), big.NewInt(7))
+	if !p1.Equal(q1) {
+		t.Error("Point Equal returned false for equal field elements")
+	}
+
+	p2, _ := NewPoint(big.NewInt(-1), big.NewInt(-1), big.NewInt(5), big.NewInt(7))
+	q2, _ := NewPoint(big.NewInt(18), big.NewInt(77), big.NewInt(5), big.NewInt(7))
+	if p2.Equal(q2) {
+		t.Error("Point Equal returned true for different field elements")
+	}
+}
+
+func TestPointNotEqual(t *testing.T) {
+	// Test equality of two field elements.
+	p1, _ := NewPoint(big.NewInt(-1), big.NewInt(-1), big.NewInt(5), big.NewInt(7))
+	q1, _ := NewPoint(big.NewInt(-1), big.NewInt(-1), big.NewInt(5), big.NewInt(7))
+	if p1.NotEqual(q1) {
+		t.Error("FieldElement Equal returned false for equal field elements")
+	}
+
+	p2, _ := NewPoint(big.NewInt(-1), big.NewInt(-1), big.NewInt(5), big.NewInt(7))
+	q2, _ := NewPoint(big.NewInt(18), big.NewInt(77), big.NewInt(5), big.NewInt(7))
+	if !p2.NotEqual(q2) {
+		t.Error("FieldElement Equal returned true for different field elements")
+	}
+}
+
+func TestPointString(t *testing.T) {
+	// Test string representation of a point.
+	p, _ := NewPoint(big.NewInt(-1), big.NewInt(-1), big.NewInt(5), big.NewInt(7))
+	expected := "Point_5_7(-1,-1)"
+	if p.String() != expected {
+		t.Errorf("Point String representation (%s) is not as expected", p.String())
+	}
+}
+
+func TestPointAdd(t *testing.T) {
+	// Test case 1: Add inverse of point and check if this adds up to point at infinity.
+	p, _ := NewPoint(big.NewInt(-1), big.NewInt(-1), big.NewInt(5), big.NewInt(7))
+	p_inv, _ := NewPoint(big.NewInt(-1), big.NewInt(1), big.NewInt(5), big.NewInt(7))
+	result, err := p.Add(p_inv)
+	if err != nil {
+		t.Errorf("Point Add returned an error: %v", err)
+	}
+	expected, _ := NewPoint(nil, nil, big.NewInt(5), big.NewInt(7))
+	if !result.Equal(expected) {
+		t.Errorf("Point Add result is not as expected")
+	}
+
+	// Test case 2: Add two field elements on a different Elliptic Curve and verify that this raises an error
+	q, err := NewPoint(big.NewInt(2), big.NewInt(0), big.NewInt(-4), big.NewInt(0))
+	if err != nil {
+		t.Errorf("Create New Point returned an error: %v", err)
+	}
+	_, err = p.Add(q)
+	if err == nil {
+		t.Errorf("Point Add returned no error, but Points are from different curves")
+	}
+
+	// Test case 3: Add point at infinity to point
+	identity, _ := NewPoint(nil, nil, big.NewInt(5), big.NewInt(7))
+	result, err = p.Add(identity)
+	if err != nil {
+		t.Errorf("Point Add to identiy returned an error: %v", err)
+	}
+	if !result.Equal(p) {
+		t.Errorf("Point Add result is not as expected")
+	}
+
+	// Test case 1: Add two points on the same elliptic curve
+	q, _ = NewPoint(big.NewInt(2), big.NewInt(5), big.NewInt(5), big.NewInt(7))
+	result, err = p.Add(q) // p + q
+	if err != nil {
+		t.Errorf("Point Add returned an error: %v", err)
+	}
+	expected, _ = NewPoint(big.NewInt(3), big.NewInt(-7), big.NewInt(5), big.NewInt(7))
+	if !result.Equal(expected) {
+		t.Errorf("Point Add result is not as expected")
+	}
+
+	// Test case 2: Test Commutative property
+	result, err = q.Add(p) // q + p
+	if err != nil {
+		t.Errorf("Point Add returned an error: %v", err)
+	}
+	if !result.Equal(expected) {
+		t.Errorf("Point Add result is not as expected")
+	}
+
+	// // Test case 3: Test Associative property
+	// p, _ = NewPoint(big.NewInt(-1), big.NewInt(-1), big.NewInt(5), big.NewInt(7))
+	// q, _ = NewPoint(big.NewInt(2), big.NewInt(5), big.NewInt(5), big.NewInt(7))
+	// r, _ := NewPoint(big.NewInt(0.25), big.NewInt(2.875), big.NewInt(5), big.NewInt(7))
+	// result1, _ := p.Add(q)
+	// result1, _ = result1.Add(r) // (p + q) + r
+	// result2, _ := q.Add(r)
+	// result2, _ = p.Add(result2) // p + (q + r)
+	// if !result1.Equal(result2) {
+	// 	t.Errorf("Point Add result is not as expected")
+	// }
+
+	// Test case 7: Add a point to itself (P_1=P_2)
+}
