@@ -1,8 +1,16 @@
 # Elliptic Curves
-Elliptic curves have the following form:
+
+The information of this chapter has been gathered from the following sources. I recommned reading those instead of my (poor) rendition of them.
+- Elliptic Curve Cryptography: a gentle introduction | https://andrea.corbellini.name/2015/05/17/elliptic-curve-cryptography-a-gentle-introduction/
+-  
+
+Elliptic curves have the following form, called the Weirestrass normal form:
 $$y^{2}=x^{3} + ax + b$$
 
-Different values for $a$ and $b$ have the following graphs:
+where $4a^{3}+27b^{2}\neq 0$ to exclude [singular curves](https://en.wikipedia.org/wiki/Singularity_(mathematics)). The following curves would not be valid elliptic curves, because they have a cusp (left) or self-intersection (right):
+![Alt text](images/singularities.png)
+
+Below the elliptic curves are shown for several values for $a$ and $b$:
 
 ![Elliptic curve grid](images/elliptic_curves_grid.svg)
 
@@ -13,6 +21,23 @@ The following graphs might help understand the elliptic curve graphs a bit bette
 Comparing the cubic equation (left panel) and the elliptic curve (right panel), it might become a bit clearer how we end up with the elliptic curve. If you take the equation $y=x^{3} + ax + b$, then the elliptic curve shows all the real solutions to the equation $y=\sqrt{x^{3} + ax + b}$. When $x^{3} + ax + b < 0$, there are no real solutions so therefore they are not plotted in the elliptic curve.
 
 ![Cubic to Elliptic](images/cubic-to-elliptic.svg)
+
+
+## The group law for elliptic curves
+We can define a group over elliptic curves:
+- the points on the elliptic curve are the elements of the group
+- the point at infinity $0$ is the identity element $e$.
+- the inverse of a point P is the one symmetric about the x-axis
+- addition is defined as the following: three non-zero points $P$, $Q$ and $R$ that are aligned have a sum of $P + Q + R = 0$. 
+
+![Alt text](images/three-aligned-points.png)
+
+To play with elliptic curves, please take a look at [this tool](https://andrea.corbellini.name/ecc/interactive/reals-add.html). 
+
+## Geometric addition
+Addition can be ordered as $P + Q = -R$ by using the properties of the abelian group. When drawing a straight line through the points $P$ and $Q$, you would intersect the elliptic curve at a third point $R$. $P + Q + R = 0$ means that $P + Q$ equals the point $-R$, or the point $R$ symmetric about the x-axis.
+
+![Alt text](images/point-addition.png)
 
 ## Application
 For our cryptocurrency application, we use the elliptic curve because it is also used by Bitcoin. Apparently it is very efficient.
