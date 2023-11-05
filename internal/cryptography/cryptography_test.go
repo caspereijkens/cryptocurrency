@@ -1,6 +1,7 @@
 package cryptography
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 )
@@ -70,7 +71,7 @@ func TestFieldElementSubtract(t *testing.T) {
 }
 
 func TestFieldElementMultiply(t *testing.T) {
-	// Test case 1: Add two field elements with the same prime
+	// Test case 1: Multiply two field elements with the same prime
 	a, _ := NewFieldElement(big.NewInt(7), big.NewInt(17))
 	b, _ := NewFieldElement(big.NewInt(8), big.NewInt(17))
 	result, err := a.Multiply(b)
@@ -83,11 +84,31 @@ func TestFieldElementMultiply(t *testing.T) {
 	}
 
 	// Test case 2: Multiply two field elements with different primes
-	c, _ := NewFieldElement(big.NewInt(7), big.NewInt(17))
-	d, _ := NewFieldElement(big.NewInt(8), big.NewInt(19))
-	_, err = c.Multiply(d)
+	c, _ := NewFieldElement(big.NewInt(8), big.NewInt(19))
+	_, err = a.Multiply(c)
 	if err == nil {
 		t.Error("FieldElement Multiply did not return an error for different primes")
+	}
+
+	// Test case 3: Multiply a field element by zero
+	d, _ := NewFieldElement(big.NewInt(7), big.NewInt(17))
+	zeroFieldElement, _ := NewFieldElement(big.NewInt(0), big.NewInt(17))
+	result, err = d.Multiply(zeroFieldElement)
+	if err != nil {
+		t.Errorf("FieldElement Multiply returned an error: %v", err)
+	}
+	expectedZero, _ := NewFieldElement(big.NewInt(0), big.NewInt(17))
+	if !result.Equal(expectedZero) {
+		t.Errorf("FieldElement Multiply result is not zero: %s", result.String())
+	}
+
+	// Test case 4: Multiply zero by a field element
+	result, err = zeroFieldElement.Multiply(d)
+	if err != nil {
+		t.Errorf("FieldElement Multiply returned an error: %v", err)
+	}
+	if !result.Equal(expectedZero) {
+		t.Errorf("FieldElement Multiply result is not zero: %s", result.String())
 	}
 }
 
@@ -415,6 +436,21 @@ func TestPointAdd(t *testing.T) {
 		t.Errorf("Point Add result is not as expected")
 	}
 
+	// Test case 6: Add point to itself
+	x4, _ := NewFieldElement(big.NewInt(49), prime)
+	y4, _ := NewFieldElement(big.NewInt(71), prime)
+	p4, _ := NewPoint(x4, y4, a, b)
+	x5, _ := NewFieldElement(big.NewInt(66), prime)
+	y5, _ := NewFieldElement(big.NewInt(111), prime)
+	p5, _ := NewPoint(x5, y5, a, b)
+	result, err = p4.Add(p4)
+	if err != nil {
+		t.Errorf("Point Add returned an error: %v", err)
+	}
+	if !result.Equal(p5) {
+		t.Errorf("Point Add result is not as expected")
+	}
+
 	// // Test case 6: Test Associative property (Test was abandoned because I don't know good cases.)
 	// p, _ = NewPoint(big.NewInt(-1), big.NewInt(-1), big.NewInt(5), big.NewInt(7))
 	// q, _ = NewPoint(big.NewInt(2), big.NewInt(5), big.NewInt(5), big.NewInt(7))
@@ -428,4 +464,18 @@ func TestPointAdd(t *testing.T) {
 	// }
 
 	// Test case 7: Add a point to itself (P_1=P_2)
+}
+
+func TestSomething(t *testing.T) {
+	prime := big.NewInt(223)
+	a, _ := NewFieldElement(big.NewInt(0), prime)
+	b, _ := NewFieldElement(big.NewInt(7), prime)
+	x, _ := NewFieldElement(big.NewInt(49), prime)
+	y, _ := NewFieldElement(big.NewInt(71), prime)
+	p, _ := NewPoint(x, y, a, b)
+	result := p
+	for i := 1; i <= 22; i++ {
+		result, _ = result.Add(p)
+		fmt.Printf("%s", result.String())
+	}
 }

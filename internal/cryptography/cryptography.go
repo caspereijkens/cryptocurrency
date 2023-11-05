@@ -229,6 +229,59 @@ func (p *Point) Add(q *Point) (*Point, error) {
 	x1, y1 := p.x, p.y
 	x2, y2 := q.x, q.y
 
+	// Check if points are equal
+	if p.Equal(q) {
+		fp3, err := NewFieldElement(big.NewInt(3), x1.prime)
+		if err != nil {
+			return nil, err
+		}
+		dy, err := x1.Squared()
+		if err != nil {
+			return nil, err
+		}
+		dy, err = dy.Multiply(fp3)
+		if err != nil {
+			return nil, err
+		}
+		dy, err = dy.Add(a)
+		if err != nil {
+			return nil, err
+		}
+		dx, err := y1.Add(y1)
+		if err != nil {
+			return nil, err
+		}
+		slope, err := dy.Divide(dx)
+		if err != nil {
+			return nil, err
+		}
+		x3, err := slope.Squared()
+		if err != nil {
+			return nil, err
+		}
+		x3, err = x3.Subtract(x1)
+		if err != nil {
+			return nil, err
+		}
+		x3, err = x3.Subtract(x1)
+		if err != nil {
+			return nil, err
+		}
+		y3, err := x1.Subtract(x3)
+		if err != nil {
+			return nil, err
+		}
+		y3, err = slope.Multiply(y3)
+		if err != nil {
+			return nil, err
+		}
+		y3, err = y3.Subtract(y1)
+		if err != nil {
+			return nil, err
+		}
+		return NewPoint(x3, y3, a, b)
+	}
+
 	// Calculate geometric difference
 	dy, err := y2.Subtract(y1)
 	if err != nil {
