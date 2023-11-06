@@ -321,9 +321,9 @@ func TestPointString(t *testing.T) {
 	y, _ := NewFieldElement(big.NewInt(56), prime)
 	p, _ := NewPoint(x, y, a, b)
 	// Test string representation of a point.
-	expected := "Point_0_7(17,56) FieldElement(223)"
+	expected := "Point_0_7(17,56) Field_223"
 	if p.String() != expected {
-		t.Errorf("Point String representation (%s) is not as expected", p.String())
+		t.Errorf("Point String representation (%s) is not as expected (%s)", p.String(), expected)
 	}
 }
 
@@ -370,6 +370,76 @@ func TestEqualEllipticCurve(t *testing.T) {
 	// Test different points
 	if p.EqualEllipticCurve(q) {
 		t.Errorf("Expected points to be different, but they are equal.")
+	}
+}
+
+// TestCalculatedxdy tests the calculatedxdy function
+func TestCalculatedxdy(t *testing.T) {
+	prime := big.NewInt(223)
+	a, _ := NewFieldElement(big.NewInt(0), prime)
+	b, _ := NewFieldElement(big.NewInt(7), prime)
+	x1, _ := NewFieldElement(big.NewInt(17), prime)
+	y1, _ := NewFieldElement(big.NewInt(56), prime)
+	x2, _ := NewFieldElement(big.NewInt(49), prime)
+	y2, _ := NewFieldElement(big.NewInt(71), prime)
+	p, _ := NewPoint(x1, y1, a, b)
+	q, _ := NewPoint(x2, y2, a, b)
+
+	// Test with the point equal to itself
+	_, _, err := p.calculatedxdy(p)
+	if err != nil {
+		t.Fatalf("Failed to calculate dx and dy: %s", err)
+	}
+	// Add assertions to check if dx and dy are correct
+	// For example:
+	// expectedDx := /* some expected value */
+	// expectedDy := /* some expected value */
+	// if !dx.Equal(expectedDx) || !dy.Equal(expectedDy) {
+	// 	t.Errorf("calculatedxdy did not calculate the expected results for equal points")
+	// }
+
+	// Test case 2:  point not equal to itself
+	// You would create a different point q with its x and y field elements here
+
+	_, _, err = p.calculatedxdy(q)
+	if err != nil {
+		t.Fatalf("Failed to calculate dx and dy: %s", err)
+	}
+	// Add assertions to check if dx and dy are correct for unequal points
+}
+
+func TestIsVerticalTangent(t *testing.T) {
+	// Create a test case where p is a point with y = 0
+	prime := big.NewInt(223)
+	a, _ := NewFieldElement(big.NewInt(0), prime)
+	b, _ := NewFieldElement(big.NewInt(7), prime)
+	x1, _ := NewFieldElement(big.NewInt(6), prime)
+	y1, _ := NewFieldElement(big.NewInt(0), prime)
+	p, _ := NewPoint(x1, y1, a, b)
+
+	// Test if p is a vertical tangent to q
+	result := p.isVerticalTangent(p)
+
+	// Expected result is true, as p and q have the same x value and y = 0
+	expectedResult := true
+
+	if result != expectedResult {
+		t.Errorf("Expected %v to be a vertical tangent to %v, but got %v", p, p, result)
+	}
+
+	// Create a test case where q has y != 0
+	x2, _ := NewFieldElement(big.NewInt(1), prime)
+	y2, _ := NewFieldElement(big.NewInt(30), prime)
+	q, _ := NewPoint(x2, y2, a, b)
+
+	// Test if p is a vertical tangent to q
+	result = p.isVerticalTangent(q)
+
+	// Expected result is false, as q has y != 0
+	expectedResult = false
+
+	if result != expectedResult {
+		t.Errorf("Expected %v to not be a vertical tangent to %v, but got %v", p, q, result)
 	}
 }
 
@@ -467,15 +537,22 @@ func TestPointAdd(t *testing.T) {
 }
 
 func TestSomething(t *testing.T) {
+	var inf *FieldElement
+
 	prime := big.NewInt(223)
 	a, _ := NewFieldElement(big.NewInt(0), prime)
 	b, _ := NewFieldElement(big.NewInt(7), prime)
 	x, _ := NewFieldElement(big.NewInt(49), prime)
 	y, _ := NewFieldElement(big.NewInt(71), prime)
 	p, _ := NewPoint(x, y, a, b)
+	identity, _ := NewPoint(inf, inf, a, b)
+
 	result := p
-	for i := 1; i <= 22; i++ {
+	for i := 1; i <= 20; i++ {
 		result, _ = result.Add(p)
-		fmt.Printf("%s", result.String())
+		fmt.Printf("%d: %s\n", i, result.String())
+	}
+	if !result.Equal(identity) {
+		t.Errorf("Point should be the identity point")
 	}
 }

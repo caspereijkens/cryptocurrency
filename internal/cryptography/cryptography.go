@@ -26,6 +26,7 @@ func (a *FieldElement) Add(b *FieldElement) (*FieldElement, error) {
 		return nil, errors.New("field elements are from different fields")
 	}
 	result := new(big.Int).Add(a.value, b.value)
+	result.Mod(result, a.prime)
 	return NewFieldElement(result, a.prime)
 }
 
@@ -48,6 +49,7 @@ func (a *FieldElement) Multiply(b *FieldElement) (*FieldElement, error) {
 		return nil, errors.New("field elements are from different fields")
 	}
 	result := new(big.Int).Mul(a.value, b.value)
+	result.Mod(result, a.prime)
 	return NewFieldElement(result.Mod(result, a.prime), a.prime)
 }
 
@@ -61,6 +63,10 @@ func (a *FieldElement) Exponentiate(power *big.Int) (*FieldElement, error) {
 // TODO add unittest
 func (a *FieldElement) Squared() (*FieldElement, error) {
 	return a.Exponentiate(big.NewInt(2))
+}
+
+func (a *FieldElement) Cubed() (*FieldElement, error) {
+	return a.Exponentiate(big.NewInt(3))
 }
 
 // Equal checks if two field elements are equal.
@@ -122,7 +128,7 @@ func NewPoint(x, y, a, b *FieldElement) (*Point, error) {
 	}
 
 	// Check if the point (x, y) is on the elliptic curve y^2 = x^3 + ax + b
-	xCubed, err := x.Exponentiate(big.NewInt(3))
+	xCubed, err := x.Cubed()
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +148,7 @@ func NewPoint(x, y, a, b *FieldElement) (*Point, error) {
 		return nil, err
 	}
 
-	ySquared, err := y.Exponentiate(big.NewInt(2))
+	ySquared, err := y.Squared()
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +193,43 @@ func (p *Point) EqualEllipticCurve(q *Point) bool {
 
 // String returns the string representation of a field element.
 func (p *Point) String() string {
-	return fmt.Sprintf("Point_%s_%s(%s,%s) FieldElement(%s)", p.a.value.String(), p.b.value.String(), p.x.value.String(), p.y.value.String(), p.x.prime.String())
+	var aVal, bVal, xVal, yVal, xPrime string
+
+	if p == nil {
+		return "Point(nil)"
+	}
+
+	if p.a != nil && p.a.value != nil {
+		aVal = p.a.value.String()
+	} else {
+		aVal = "<nil>"
+	}
+
+	if p.b != nil && p.b.value != nil {
+		bVal = p.b.value.String()
+	} else {
+		bVal = "<nil>"
+	}
+
+	if p.a.prime != nil {
+		xPrime = p.a.prime.String()
+	} else {
+		xPrime = "<nil>"
+	}
+
+	if p.x != nil && p.x.value != nil {
+		xVal = p.x.value.String()
+	} else {
+		xVal = "inf"
+	}
+
+	if p.y != nil && p.y.value != nil {
+		yVal = p.y.value.String()
+	} else {
+		yVal = "inf"
+	}
+
+	return fmt.Sprintf("Point_%s_%s(%s,%s) Field_%s", aVal, bVal, xVal, yVal, xPrime)
 }
 
 // Copy returns a new Point with the same values as the current Point.
@@ -213,81 +255,41 @@ func (p *Point) Add(q *Point) (*Point, error) {
 		return p.Copy()
 	}
 
+	// Handle special cases
 	// Exception when the tangent line is vertical, then return the identity point
-	a := p.a
-	b := p.b
-	if p.Equal(q) && p.y.value == big.NewInt(0) {
-		return NewPoint(nil, nil, a, b)
+	if p.Equal(q) && p.isVerticalTangent(q) {
+		return NewPoint(nil, nil, p.a, p.b)
 	}
-
 	// Check if the points are additive inverses of each other, then return point at infinity (identity)
-	if p.Equal(&Point{q.x, q.y.Negate(), a, b}) {
-		return NewPoint(nil, nil, a, b)
+	if p.Equal(&Point{q.x, q.y.Negate(), p.a, p.b}) {
+		return NewPoint(nil, nil, p.a, p.b)
 	}
 
 	// Calculate the sum of the points using the elliptic curve addition rules
-	x1, y1 := p.x, p.y
-	x2, y2 := q.x, q.y
-
-	// Check if points are equal
-	if p.Equal(q) {
-		fp3, err := NewFieldElement(big.NewInt(3), x1.prime)
-		if err != nil {
-			return nil, err
-		}
-		dy, err := x1.Squared()
-		if err != nil {
-			return nil, err
-		}
-		dy, err = dy.Multiply(fp3)
-		if err != nil {
-			return nil, err
-		}
-		dy, err = dy.Add(a)
-		if err != nil {
-			return nil, err
-		}
-		dx, err := y1.Add(y1)
-		if err != nil {
-			return nil, err
-		}
-		slope, err := dy.Divide(dx)
-		if err != nil {
-			return nil, err
-		}
-		x3, err := slope.Squared()
-		if err != nil {
-			return nil, err
-		}
-		x3, err = x3.Subtract(x1)
-		if err != nil {
-			return nil, err
-		}
-		x3, err = x3.Subtract(x1)
-		if err != nil {
-			return nil, err
-		}
-		y3, err := x1.Subtract(x3)
-		if err != nil {
-			return nil, err
-		}
-		y3, err = slope.Multiply(y3)
-		if err != nil {
-			return nil, err
-		}
-		y3, err = y3.Subtract(y1)
-		if err != nil {
-			return nil, err
-		}
-		return NewPoint(x3, y3, a, b)
-	}
-
-	// Calculate geometric difference
-	dy, err := y2.Subtract(y1)
+	slope, err := p.calculateSlope(q)
 	if err != nil {
 		return nil, err
 	}
-	dx, err := x2.Subtract(x1)
+
+	x3, err := p.calculateX3(q, slope)
+	if err != nil {
+		return nil, err
+	}
+
+	y3, err := p.calculateY3(q, x3, slope)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewPoint(x3, y3, p.a, p.b)
+}
+
+func (p *Point) isSpecialCase(q *Point) bool {
+	return p.Equal(q) || p.isVerticalTangent(q)
+}
+
+func (p *Point) calculateSlope(q *Point) (*FieldElement, error) {
+	dx, dy, err := p.calculatedxdy(q)
 	if err != nil {
 		return nil, err
 	}
@@ -295,13 +297,32 @@ func (p *Point) Add(q *Point) (*Point, error) {
 	if err != nil {
 		return nil, err
 	}
+	return slope, nil
+}
 
+func (p *Point) handleSpecialCase(q *Point) (*Point, error) {
+	// Exception when the tangent line is vertical, then return the identity point
+	if p.Equal(q) && p.isVerticalTangent(q) {
+		return NewPoint(nil, nil, p.a, p.b)
+	}
+	// Check if the points are additive inverses of each other, then return point at infinity (identity)
+	if p.Equal(&Point{q.x, q.y.Negate(), p.a, p.b}) {
+		return NewPoint(nil, nil, p.a, p.b)
+	}
+	return NewPoint(nil, nil, p.a, p.b)
+}
+
+func (p *Point) isVerticalTangent(q *Point) bool {
+	return p.Equal(q) && p.y.value.Cmp(big.NewInt(0)) == 0
+}
+
+func (p *Point) calculateX3(q *Point, slope *FieldElement) (*FieldElement, error) {
 	slopeSquared, err := slope.Squared()
 	if err != nil {
 		return nil, err
 	}
 
-	xTotal, err := x1.Add(x2)
+	xTotal, err := p.x.Add(q.x)
 	if err != nil {
 		return nil, err
 	}
@@ -311,7 +332,11 @@ func (p *Point) Add(q *Point) (*Point, error) {
 		return nil, err
 	}
 
-	dx13, err := x1.Subtract(x3)
+	return x3, nil
+}
+
+func (p *Point) calculateY3(q *Point, x3 *FieldElement, slope *FieldElement) (*FieldElement, error) {
+	dx13, err := p.x.Subtract(x3)
 	if err != nil {
 		return nil, err
 	}
@@ -321,10 +346,48 @@ func (p *Point) Add(q *Point) (*Point, error) {
 		return nil, err
 	}
 
-	y3, err := slopedx13.Subtract(y1)
+	y3, err := slopedx13.Subtract(p.y)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewPoint(x3, y3, a, b)
+	return y3, nil
+}
+
+// Calculates dx and dy needed to compute the slope.
+func (p *Point) calculatedxdy(q *Point) (*FieldElement, *FieldElement, error) {
+	if p.Equal(q) {
+		// In this case we need to compute the differential
+		three, err := NewFieldElement(big.NewInt(3), p.x.prime)
+		if err != nil {
+			return nil, nil, err
+		}
+		dy, err := p.x.Squared()
+		if err != nil {
+			return nil, nil, err
+		}
+		dy, err = dy.Multiply(three)
+		if err != nil {
+			return nil, nil, err
+		}
+		dy, err = dy.Add(p.a)
+		if err != nil {
+			return nil, nil, err
+		}
+		dx, err := p.y.Add(p.y)
+		if err != nil {
+			return nil, nil, err
+		}
+		return dx, dy, nil
+	}
+	dy, err := q.y.Subtract(p.y)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	dx, err := q.x.Subtract(p.x)
+	if err != nil {
+		return nil, nil, err
+	}
+	return dx, dy, nil
 }
