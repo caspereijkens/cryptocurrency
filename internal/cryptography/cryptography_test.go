@@ -24,6 +24,16 @@ func TestNewFieldElement(t *testing.T) {
 	if err == nil {
 		t.Error("NewFieldElement did not return an error for out-of-range value")
 	}
+
+	// Test case 3: Value nil
+	value = nil
+	fe, err = NewFieldElement(value, prime)
+	if err != nil {
+		t.Error("NewFieldElement did not return an error for out-of-range value")
+	}
+	if fe != nil {
+		t.Error("NewFieldElement did not return desired nil field element")
+	}
 }
 
 func TestFieldElementAdd(t *testing.T) {
@@ -113,16 +123,95 @@ func TestFieldElementMultiply(t *testing.T) {
 }
 
 func TestFieldElementExponentiate(t *testing.T) {
-	// Test exponentiation of a field element.
-	base, _ := NewFieldElement(big.NewInt(3), big.NewInt(17))
-	power := big.NewInt(3)
-	result, err := base.Exponentiate(power)
-	if err != nil {
-		t.Errorf("FieldElement Exponentiate returned an error: %v", err)
+	// Test setup with different base values and powers
+	testCases := []struct {
+		base     int64
+		power    int64
+		expected int64
+		prime    int64 // Using a prime number for the field
+	}{
+		{3, 3, 27, 53},         // Normal case
+		{0, 5, 0, 53},          // Exponentiating zero
+		{5, 0, 1, 53},          // Power of zero
+		{6, 2, 36, 53},         // Square
+		{2, 3, 8, 53},          // Cube
+		{12, 1, 12, 53},        // Power of one
+		{15, 3, 3375 % 53, 53}, // Larger numbers
+		// Add more cases as necessary
 	}
-	expected, _ := NewFieldElement(big.NewInt(10), big.NewInt(17))
-	if !result.Equal(expected) {
-		t.Errorf("FieldElement Multiply result is not as expected: %s", result.String())
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("Base%dPower%d", tc.base, tc.power), func(t *testing.T) {
+			base, _ := NewFieldElement(big.NewInt(tc.base), big.NewInt(tc.prime))
+			power := big.NewInt(tc.power)
+			expected, _ := NewFieldElement(big.NewInt(tc.expected), big.NewInt(tc.prime))
+
+			result, err := base.Exponentiate(power)
+			if err != nil {
+				t.Errorf("FieldElement Exponentiate returned an error: %v", err)
+			}
+			if !result.Equal(expected) {
+				t.Errorf("FieldElement Exponentiate result is not as expected: got %s, want %s", result.String(), expected.String())
+			}
+		})
+	}
+}
+
+func TestFieldElementSquared(t *testing.T) {
+	// Test setup
+	prime := big.NewInt(17)
+	testCases := []struct {
+		name     string
+		input    *big.Int
+		expected *big.Int
+	}{
+		{"Square of 2", big.NewInt(2), big.NewInt(4)},
+		{"Square of 0", big.NewInt(0), big.NewInt(0)},
+		{"Square of 5", big.NewInt(5), big.NewInt(8)},
+		{"Square of 6", big.NewInt(6), big.NewInt(2)},
+		// Add more test cases...
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			a, _ := NewFieldElement(tc.input, prime)
+			result, err := a.Squared()
+			if err != nil {
+				t.Errorf("FieldElement Exponentiate returned an error: %v", err)
+			}
+			expected, _ := NewFieldElement(tc.expected, prime)
+			if !result.Equal(expected) {
+				t.Errorf("FieldElement Multiply result is not as expected: %s", result.String())
+			}
+		})
+	}
+}
+
+func TestFieldElementCubed(t *testing.T) {
+	// Test setup
+	prime := big.NewInt(17)
+	testCases := []struct {
+		name     string
+		input    *big.Int
+		expected *big.Int
+	}{
+		{"Cube of 2", big.NewInt(2), big.NewInt(8)},
+		{"Cube of 0", big.NewInt(0), big.NewInt(0)},
+		{"Cube of 5", big.NewInt(5), big.NewInt(6)},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			a, _ := NewFieldElement(tc.input, prime)
+			result, err := a.Cubed()
+			if err != nil {
+				t.Errorf("FieldElement Exponentiate returned an error: %v", err)
+			}
+			expected, _ := NewFieldElement(tc.expected, prime)
+			if !result.Equal(expected) {
+				t.Errorf("FieldElement Multiply result is not as expected: %s", result.String())
+			}
+		})
 	}
 }
 
@@ -167,7 +256,10 @@ func TestFieldElementNegate(t *testing.T) {
 			t.Fatalf("Error creating FieldElement: %v", err)
 		}
 
-		negatedFe := fe.Negate()
+		negatedFe, err := fe.Negate()
+		if err != nil {
+			t.Errorf("Error negating FieldElement: %v", fe)
+		}
 		if negatedFe.value.Cmp(test.expectedValue) != 0 {
 			t.Errorf("Negate(%v) => %v, expected %v", test.inputValue, negatedFe.value, test.expectedValue)
 		}
@@ -450,7 +542,8 @@ func TestPointAdd(t *testing.T) {
 	x1, _ := NewFieldElement(big.NewInt(192), prime)
 	y1, _ := NewFieldElement(big.NewInt(105), prime)
 	p1, _ := NewPoint(x1, y1, a, b)
-	p1_inv, _ := NewPoint(x1, y1.Negate(), a, b)
+	y1_neg, _ := y1.Negate()
+	p1_inv, _ := NewPoint(x1, y1_neg, a, b)
 	identity, _ := NewPoint(nil, nil, a, b)
 
 	// Test case 1: Add inverse of point and check if this adds up to point at infinity.
@@ -536,16 +629,14 @@ func TestPointAdd(t *testing.T) {
 	// Test case 7: Add a point to itself (P_1=P_2)
 }
 
-func TestSomething(t *testing.T) {
-	var inf *FieldElement
-
+func TestAddingtoInf(t *testing.T) {
 	prime := big.NewInt(223)
 	a, _ := NewFieldElement(big.NewInt(0), prime)
 	b, _ := NewFieldElement(big.NewInt(7), prime)
 	x, _ := NewFieldElement(big.NewInt(49), prime)
 	y, _ := NewFieldElement(big.NewInt(71), prime)
 	p, _ := NewPoint(x, y, a, b)
-	identity, _ := NewPoint(inf, inf, a, b)
+	identity, _ := NewPoint(nil, nil, a, b)
 
 	result := p
 	for i := 1; i <= 20; i++ {
@@ -554,5 +645,54 @@ func TestSomething(t *testing.T) {
 	}
 	if !result.Equal(identity) {
 		t.Errorf("Point should be the identity point")
+	}
+}
+
+// TODO Add unit test for copy
+
+func TestScalarMultiplication(t *testing.T) {
+	// setup
+	prime := big.NewInt(223)
+	a, _ := NewFieldElement(big.NewInt(0), prime)
+	b, _ := NewFieldElement(big.NewInt(7), prime)
+	x, _ := NewFieldElement(big.NewInt(49), prime)
+	y, _ := NewFieldElement(big.NewInt(71), prime)
+	p, _ := NewPoint(x, y, a, b)
+	// Define test cases
+	testCases := []struct {
+		coefficient *big.Int
+		expectedX   *big.Int
+		expectedY   *big.Int
+		expectError bool
+	}{
+		// Test cases with normal coefficients
+		{big.NewInt(1), big.NewInt(49), big.NewInt(71), false},
+		{big.NewInt(2), big.NewInt(66), big.NewInt(111), false},
+		{big.NewInt(4), big.NewInt(207), big.NewInt(51), false},
+		{big.NewInt(21), nil, nil, false},
+
+		// Test case with coefficient 0 (edge case)
+		{big.NewInt(0), nil, nil, false},
+
+		// Test case with negative coefficient (error case)
+		{big.NewInt(-1), nil, nil, true},
+
+		// ... other test cases ...
+	}
+
+	for _, tc := range testCases {
+		// Perform Scalar Multiplication
+		result, err := p.ScalarMultiplication(tc.coefficient)
+		if (err != nil) != tc.expectError {
+			t.Errorf("Expected error: %v, got: %v for coefficient %d", tc.expectError, err, tc.coefficient)
+		}
+		expectedX, _ := NewFieldElement(tc.expectedX, prime)
+		expectedY, _ := NewFieldElement(tc.expectedY, prime)
+		expected, _ := NewPoint(expectedX, expectedY, a, b)
+
+		// Assert results
+		if !tc.expectError && !result.Equal(expected) {
+			t.Errorf("Expected result %s, got %s for coefficient %s", expected.String(), result.String(), tc.coefficient.String())
+		}
 	}
 }

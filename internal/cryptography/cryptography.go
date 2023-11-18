@@ -14,6 +14,9 @@ type FieldElement struct {
 
 // NewFieldElement creates a new FieldElement with the given value and prime.
 func NewFieldElement(value, prime *big.Int) (*FieldElement, error) {
+	if value == nil {
+		return nil, nil
+	}
 	if value.Sign() < 0 || value.Cmp(prime) >= 0 {
 		return nil, errors.New("value not in the range [0, prime-1]")
 	}
@@ -25,8 +28,7 @@ func (a *FieldElement) Add(b *FieldElement) (*FieldElement, error) {
 	if a.prime.Cmp(b.prime) != 0 {
 		return nil, errors.New("field elements are from different fields")
 	}
-	result := new(big.Int).Add(a.value, b.value)
-	result.Mod(result, a.prime)
+	result := new(big.Int).Mod(new(big.Int).Add(a.value, b.value), a.prime)
 	return NewFieldElement(result, a.prime)
 }
 
@@ -37,8 +39,7 @@ func (a *FieldElement) Subtract(b *FieldElement) (*FieldElement, error) {
 	}
 	result := new(big.Int).Sub(a.value, b.value)
 	if result.Sign() < 0 {
-		// If the result is negative, add the prime to wrap it around within the field
-		result = result.Add(result, a.prime)
+		result.Add(result, a.prime)
 	}
 	return NewFieldElement(result, a.prime)
 }
@@ -59,8 +60,7 @@ func (a *FieldElement) Exponentiate(power *big.Int) (*FieldElement, error) {
 	return NewFieldElement(result.Mod(result, a.prime), a.prime)
 }
 
-// Squared computes the exponentiation of a field element to a given power.
-// TODO add unittest
+// Squared computes the square of a field element.
 func (a *FieldElement) Squared() (*FieldElement, error) {
 	return a.Exponentiate(big.NewInt(2))
 }
@@ -75,15 +75,10 @@ func (a *FieldElement) Equal(b *FieldElement) bool {
 }
 
 // Negate returns a new FieldElement with the negated value of the current FieldElement.
-func (a *FieldElement) Negate() *FieldElement {
+func (a *FieldElement) Negate() (*FieldElement, error) {
 	// Calculate the negated value as (prime - value) % prime
 	negatedValue := new(big.Int).Sub(a.prime, a.value)
-	negatedValue.Mod(negatedValue, a.prime)
-
-	// Create a new FieldElement with the negated value and the same prime
-	negatedFieldElement, _ := NewFieldElement(negatedValue, a.prime)
-
-	return negatedFieldElement
+	return NewFieldElement(negatedValue.Mod(negatedValue, a.prime), a.prime)
 }
 
 // String returns the string representation of a field element.
@@ -187,10 +182,6 @@ func (p *Point) EqualEllipticCurve(q *Point) bool {
 	return p.a.Equal(q.a) && p.b.Equal(q.b)
 }
 
-// func (p *Point) NotEqual(q *Point) bool {
-// 	return !p.Equal(q)
-// }
-
 // String returns the string representation of a field element.
 func (p *Point) String() string {
 	var aVal, bVal, xVal, yVal, xPrime string
@@ -261,7 +252,11 @@ func (p *Point) Add(q *Point) (*Point, error) {
 		return NewPoint(nil, nil, p.a, p.b)
 	}
 	// Check if the points are additive inverses of each other, then return point at infinity (identity)
-	if p.Equal(&Point{q.x, q.y.Negate(), p.a, p.b}) {
+	y2_neg, err := q.y.Negate()
+	if err != nil {
+		return nil, err
+	}
+	if p.Equal(&Point{q.x, y2_neg, p.a, p.b}) {
 		return NewPoint(nil, nil, p.a, p.b)
 	}
 
@@ -284,10 +279,6 @@ func (p *Point) Add(q *Point) (*Point, error) {
 	return NewPoint(x3, y3, p.a, p.b)
 }
 
-func (p *Point) isSpecialCase(q *Point) bool {
-	return p.Equal(q) || p.isVerticalTangent(q)
-}
-
 func (p *Point) calculateSlope(q *Point) (*FieldElement, error) {
 	dx, dy, err := p.calculatedxdy(q)
 	if err != nil {
@@ -298,18 +289,6 @@ func (p *Point) calculateSlope(q *Point) (*FieldElement, error) {
 		return nil, err
 	}
 	return slope, nil
-}
-
-func (p *Point) handleSpecialCase(q *Point) (*Point, error) {
-	// Exception when the tangent line is vertical, then return the identity point
-	if p.Equal(q) && p.isVerticalTangent(q) {
-		return NewPoint(nil, nil, p.a, p.b)
-	}
-	// Check if the points are additive inverses of each other, then return point at infinity (identity)
-	if p.Equal(&Point{q.x, q.y.Negate(), p.a, p.b}) {
-		return NewPoint(nil, nil, p.a, p.b)
-	}
-	return NewPoint(nil, nil, p.a, p.b)
 }
 
 func (p *Point) isVerticalTangent(q *Point) bool {
@@ -390,4 +369,41 @@ func (p *Point) calculatedxdy(q *Point) (*FieldElement, *FieldElement, error) {
 		return nil, nil, err
 	}
 	return dx, dy, nil
+}
+
+// ScalarMult performs scalar multiplication of a point on an elliptic curve.
+func (p *Point) ScalarMultiplication(coefficient *big.Int) (*Point, error) {
+	if coefficient.Sign() == -1 {
+		return nil, fmt.Errorf("coefficient must be positive")
+	}
+	// We start the result at the identity element
+	result, err := NewPoint(nil, nil, p.a, p.b)
+	if err != nil {
+		return nil, err
+	}
+	// current represents the point at the current bit.
+	current, err := p.Copy()
+	if err != nil {
+		return nil, err
+	}
+	// Binary expansion, allows to do multiplication in log_2(n) loops
+	for coef := coefficient; coef.Cmp(big.NewInt(0)) > 0; coef.Rsh(coef, 1) {
+		// Check if the rightmost bit is a 1.
+		if coef.Bit(0) == 1 {
+			// Add the value of the current bit
+			result, err = result.Add(current)
+			if err != nil {
+				return nil, err
+			}
+		}
+		// In effect, this doubles current
+		// The first time through the loop it represents  1 x p
+		// The second time through the loop it represents 2 x p
+		// The third time through the loop it represents  4 x p
+		current, err = current.Add(current)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
 }
