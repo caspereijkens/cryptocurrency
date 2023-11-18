@@ -641,7 +641,7 @@ func TestAddingtoInf(t *testing.T) {
 	result := p
 	for i := 1; i <= 20; i++ {
 		result, _ = result.Add(p)
-		fmt.Printf("%d: %s\n", i, result.String())
+		// fmt.Printf("%d: %s\n", i, result.String())
 	}
 	if !result.Equal(identity) {
 		t.Errorf("Point should be the identity point")
@@ -694,5 +694,19 @@ func TestScalarMultiplication(t *testing.T) {
 		if !tc.expectError && !result.Equal(expected) {
 			t.Errorf("Expected result %s, got %s for coefficient %s", expected.String(), result.String(), tc.coefficient.String())
 		}
+	}
+}
+
+func TestOrderofGenerator(t *testing.T) {
+	// setup
+	identity, _ := NewPoint(nil, nil, &A.FieldElement, &B.FieldElement)
+	// Call your function
+	result, err := G.ScalarMultiplication(N)
+
+	if err != nil {
+		t.Errorf("Calculation did not go correct.")
+	}
+	if !result.Equal(identity) {
+		t.Errorf("Point should be the identity point")
 	}
 }
