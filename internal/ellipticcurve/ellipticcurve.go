@@ -1,24 +1,18 @@
-package cryptography
+package ellipticcurve
 
 import (
-	"errors"
 	"fmt"
 	"math/big"
+
+	"github.com/caspereijkens/cryptocurrency/internal/finitefield"
 )
 
 var (
-	S256Prime = getS256Prime()
-	A, _      = NewS256FieldElement(big.NewInt(0))
-	B, _      = NewS256FieldElement(big.NewInt(7))
-	N         = getOrder()
-	G         = getS256Generator()
+	A, _ = finitefield.NewS256FieldElement(big.NewInt(0))
+	B, _ = finitefield.NewS256FieldElement(big.NewInt(7))
+	N    = getOrder()
+	G    = getS256Generator()
 )
-
-// FieldElement represents an element in a finite field.
-type FieldElement struct {
-	value *big.Int
-	prime *big.Int
-}
 
 func getOrder() *big.Int {
 	// Since the generator Point is known, the group that it generates and so its order are also known.
@@ -40,132 +34,22 @@ func getS256Generator() *S256Point {
 	x, _ := new(big.Int).SetString(xHex, 0) // [2:] to remove the '0x' prefix
 	y, _ := new(big.Int).SetString(yHex, 0) // [2:] to remove the '0x' prefix
 
-	xF, _ := NewS256FieldElement(x)
-	yF, _ := NewS256FieldElement(y)
+	xF, _ := finitefield.NewS256FieldElement(x)
+	yF, _ := finitefield.NewS256FieldElement(y)
 
 	generator, _ := NewS256Point(xF, yF)
 	return generator
 }
 
-func getS256Prime() *big.Int {
-	two := big.NewInt(2)
-	p := new(big.Int)
-
-	// Calculate 2^256
-	twoToThe256 := new(big.Int).Exp(two, big.NewInt(256), nil)
-
-	// Calculate 2^32
-	twoToThe32 := new(big.Int).Exp(two, big.NewInt(32), nil)
-
-	// Subtract 2^32 and 977 from 2^256
-	p.Sub(twoToThe256, twoToThe32)
-	p.Sub(p, big.NewInt(977))
-	return p
-}
-
-// NewFieldElement creates a new FieldElement with the given value and prime.
-func NewFieldElement(value, prime *big.Int) (*FieldElement, error) {
-	if value == nil {
-		return nil, nil
-	}
-	if value.Sign() < 0 || value.Cmp(prime) >= 0 {
-		return nil, errors.New("value not in the range [0, prime-1]")
-	}
-	return &FieldElement{value: new(big.Int).Set(value), prime: new(big.Int).Set(prime)}, nil
-}
-
-// Add adds two field elements and returns a new field element.
-func (a *FieldElement) Add(b *FieldElement) (*FieldElement, error) {
-	if a.prime.Cmp(b.prime) != 0 {
-		return nil, errors.New("field elements are from different fields")
-	}
-	result := new(big.Int).Mod(new(big.Int).Add(a.value, b.value), a.prime)
-	return NewFieldElement(result, a.prime)
-}
-
-// Subtract subtracts two field elements and returns a new field element.
-func (a *FieldElement) Subtract(b *FieldElement) (*FieldElement, error) {
-	if a.prime.Cmp(b.prime) != 0 {
-		return nil, errors.New("field elements are from different fields")
-	}
-	result := new(big.Int).Sub(a.value, b.value)
-	if result.Sign() < 0 {
-		result.Add(result, a.prime)
-	}
-	return NewFieldElement(result, a.prime)
-}
-
-// Multiply multiplies two field elements and returns a new field element.
-func (a *FieldElement) Multiply(b *FieldElement) (*FieldElement, error) {
-	if a.prime.Cmp(b.prime) != 0 {
-		return nil, errors.New("field elements are from different fields")
-	}
-	result := new(big.Int).Mul(a.value, b.value)
-	result.Mod(result, a.prime)
-	return NewFieldElement(result.Mod(result, a.prime), a.prime)
-}
-
-// Exponentiate computes the exponentiation of a field element to a given power.
-func (a *FieldElement) Exponentiate(power *big.Int) (*FieldElement, error) {
-	result := new(big.Int).Exp(a.value, power, a.prime)
-	return NewFieldElement(result.Mod(result, a.prime), a.prime)
-}
-
-// Squared computes the square of a field element.
-func (a *FieldElement) Squared() (*FieldElement, error) {
-	return a.Exponentiate(big.NewInt(2))
-}
-
-func (a *FieldElement) Cubed() (*FieldElement, error) {
-	return a.Exponentiate(big.NewInt(3))
-}
-
-// Equal checks if two field elements are equal.
-func (a *FieldElement) Equal(b *FieldElement) bool {
-	return a.value.Cmp(b.value) == 0 && a.prime.Cmp(b.prime) == 0
-}
-
-// Negate returns a new FieldElement with the negated value of the current FieldElement.
-func (a *FieldElement) Negate() (*FieldElement, error) {
-	// Calculate the negated value as (prime - value) % prime
-	negatedValue := new(big.Int).Sub(a.prime, a.value)
-	return NewFieldElement(negatedValue.Mod(negatedValue, a.prime), a.prime)
-}
-
-// String returns the string representation of a field element.
-func (a *FieldElement) String() string {
-	if a.prime.Cmp(S256Prime) == 0 {
-		return fmt.Sprintf("%064x", a.value)
-	}
-	return fmt.Sprintf("FieldElement_%s(%s)", a.prime.String(), a.value.String())
-}
-
-// Divide computes the division of two field elements (a / b).
-func (a *FieldElement) Divide(b *FieldElement) (*FieldElement, error) {
-	if a.prime.Cmp(b.prime) != 0 {
-		return nil, errors.New("field elements are from different fields")
-	}
-	if b.value.Sign() == 0 {
-		return nil, errors.New("division by zero")
-	}
-	// Compute the modular multiplicative inverse of b
-	inverse := new(big.Int).ModInverse(b.value, a.prime)
-	if inverse == nil {
-		return nil, errors.New("division by non-invertible element")
-	}
-	result := new(big.Int).Mul(a.value, inverse)
-	return NewFieldElement(result.Mod(result, a.prime), a.prime)
-}
-
 // Point represents a point on the Elliptic Curve y^2 = x^3 + 7
 type Point struct {
-	x *FieldElement
-	y *FieldElement
-	a *FieldElement
-	b *FieldElement
+	x *finitefield.FieldElement
+	y *finitefield.FieldElement
+	a *finitefield.FieldElement
+	b *finitefield.FieldElement
 }
 
-func NewPoint(x, y, a, b *FieldElement) (*Point, error) {
+func NewPoint(x, y, a, b *finitefield.FieldElement) (*Point, error) {
 	// Check if a and b are well defined
 	if a == nil || b == nil {
 		return nil, fmt.Errorf("elliptic curve parameters are not well-defined")
@@ -244,32 +128,32 @@ func (p *Point) String() string {
 		return "Point(nil)"
 	}
 
-	if p.a != nil && p.a.value != nil {
-		aVal = p.a.value.String()
+	if p.a != nil && p.a.Value != nil {
+		aVal = p.a.Value.String()
 	} else {
 		aVal = "<nil>"
 	}
 
-	if p.b != nil && p.b.value != nil {
-		bVal = p.b.value.String()
+	if p.b != nil && p.b.Value != nil {
+		bVal = p.b.Value.String()
 	} else {
 		bVal = "<nil>"
 	}
 
-	if p.a.prime != nil {
-		xPrime = p.a.prime.String()
+	if p.a.Prime != nil {
+		xPrime = p.a.Prime.String()
 	} else {
 		xPrime = "<nil>"
 	}
 
-	if p.x != nil && p.x.value != nil {
-		xVal = p.x.value.String()
+	if p.x != nil && p.x.Value != nil {
+		xVal = p.x.Value.String()
 	} else {
 		xVal = "inf"
 	}
 
-	if p.y != nil && p.y.value != nil {
-		yVal = p.y.value.String()
+	if p.y != nil && p.y.Value != nil {
+		yVal = p.y.Value.String()
 	} else {
 		yVal = "inf"
 	}
@@ -333,7 +217,7 @@ func (p *Point) Add(q *Point) (*Point, error) {
 	return NewPoint(x3, y3, p.a, p.b)
 }
 
-func (p *Point) calculateSlope(q *Point) (*FieldElement, error) {
+func (p *Point) calculateSlope(q *Point) (*finitefield.FieldElement, error) {
 	dx, dy, err := p.calculatedxdy(q)
 	if err != nil {
 		return nil, err
@@ -346,10 +230,10 @@ func (p *Point) calculateSlope(q *Point) (*FieldElement, error) {
 }
 
 func (p *Point) isVerticalTangent(q *Point) bool {
-	return p.Equal(q) && p.y.value.Cmp(big.NewInt(0)) == 0
+	return p.Equal(q) && p.y.Value.Cmp(big.NewInt(0)) == 0
 }
 
-func (p *Point) calculateX3(q *Point, slope *FieldElement) (*FieldElement, error) {
+func (p *Point) calculateX3(q *Point, slope *finitefield.FieldElement) (*finitefield.FieldElement, error) {
 	slopeSquared, err := slope.Squared()
 	if err != nil {
 		return nil, err
@@ -368,7 +252,7 @@ func (p *Point) calculateX3(q *Point, slope *FieldElement) (*FieldElement, error
 	return x3, nil
 }
 
-func (p *Point) calculateY3(q *Point, x3 *FieldElement, slope *FieldElement) (*FieldElement, error) {
+func (p *Point) calculateY3(q *Point, x3 *finitefield.FieldElement, slope *finitefield.FieldElement) (*finitefield.FieldElement, error) {
 	dx13, err := p.x.Subtract(x3)
 	if err != nil {
 		return nil, err
@@ -388,10 +272,10 @@ func (p *Point) calculateY3(q *Point, x3 *FieldElement, slope *FieldElement) (*F
 }
 
 // Calculates dx and dy needed to compute the slope.
-func (p *Point) calculatedxdy(q *Point) (*FieldElement, *FieldElement, error) {
+func (p *Point) calculatedxdy(q *Point) (*finitefield.FieldElement, *finitefield.FieldElement, error) {
 	if p.Equal(q) {
 		// In this case we need to compute the differential
-		three, err := NewFieldElement(big.NewInt(3), p.x.prime)
+		three, err := finitefield.NewFieldElement(big.NewInt(3), p.x.Prime)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -462,25 +346,11 @@ func (p *Point) ScalarMultiplication(coefficient *big.Int) (*Point, error) {
 	return result, nil
 }
 
-// S256FieldElement represents a field element with a fixed prime for secp256k1.
-type S256FieldElement struct {
-	FieldElement
-}
-
-// NewS256FieldElement creates a new Secp256k1FieldElement with the fixed prime.
-func NewS256FieldElement(value *big.Int) (*S256FieldElement, error) {
-	f, err := NewFieldElement(value, S256Prime)
-	if err != nil {
-		return nil, err
-	}
-	return &S256FieldElement{*f}, nil
-}
-
 type S256Point struct {
 	Point
 }
 
-func NewS256Point(x, y *S256FieldElement) (*S256Point, error) {
+func NewS256Point(x, y *finitefield.S256FieldElement) (*S256Point, error) {
 	p, err := NewPoint(&x.FieldElement, &y.FieldElement, &A.FieldElement, &B.FieldElement)
 	if err != nil {
 		return nil, err
