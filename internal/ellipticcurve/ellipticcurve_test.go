@@ -394,17 +394,3 @@ func TestScalarMultiplication(t *testing.T) {
 		}
 	}
 }
-
-func TestOrderofGenerator(t *testing.T) {
-	// setup
-	identity, _ := NewPoint(nil, nil, &A.FieldElement, &B.FieldElement)
-	// Call your function
-	result, err := G.ScalarMultiplication(N)
-
-	if err != nil {
-		t.Errorf("Calculation did not go correct.")
-	}
-	if !result.Equal(identity) {
-		t.Errorf("Point should be the identity point")
-	}
-}

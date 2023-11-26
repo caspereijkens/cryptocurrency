@@ -7,46 +7,12 @@ import (
 	"github.com/caspereijkens/cryptocurrency/internal/finitefield"
 )
 
-var (
-	A, _ = finitefield.NewS256FieldElement(big.NewInt(0))
-	B, _ = finitefield.NewS256FieldElement(big.NewInt(7))
-	N    = getOrder()
-	G    = getS256Generator()
-)
-
-func getOrder() *big.Int {
-	// Since the generator Point is known, the group that it generates and so its order are also known.
-	// This is the hex value of this order.
-	orderHex := "0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141"
-
-	// Set the big int to your large number
-	order, _ := new(big.Int).SetString(orderHex, 0) // [2:] to remove the '0x' prefix
-
-	return order
-
-}
-
-func getS256Generator() *S256Point {
-	// https://crypto.stackexchange.com/questions/60420/what-does-the-special-form-of-the-base-point-of-secp256k1-allow
-	xHex := "0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
-	yHex := "0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8"
-
-	x, _ := new(big.Int).SetString(xHex, 0) // [2:] to remove the '0x' prefix
-	y, _ := new(big.Int).SetString(yHex, 0) // [2:] to remove the '0x' prefix
-
-	xF, _ := finitefield.NewS256FieldElement(x)
-	yF, _ := finitefield.NewS256FieldElement(y)
-
-	generator, _ := NewS256Point(xF, yF)
-	return generator
-}
-
 // Point represents a point on the Elliptic Curve y^2 = x^3 + 7
 type Point struct {
-	x *finitefield.FieldElement
-	y *finitefield.FieldElement
-	a *finitefield.FieldElement
-	b *finitefield.FieldElement
+	X *finitefield.FieldElement
+	Y *finitefield.FieldElement
+	A *finitefield.FieldElement
+	B *finitefield.FieldElement
 }
 
 func NewPoint(x, y, a, b *finitefield.FieldElement) (*Point, error) {
@@ -94,12 +60,12 @@ func NewPoint(x, y, a, b *finitefield.FieldElement) (*Point, error) {
 }
 
 func (p *Point) IsIdentityElement() bool {
-	return p.x == nil && p.y == nil
+	return p.X == nil && p.Y == nil
 }
 
 func (p *Point) Equal(q *Point) bool {
 	// Check that the points are on the same line
-	if !p.a.Equal(q.a) || !p.b.Equal(q.b) {
+	if !p.A.Equal(q.A) || !p.B.Equal(q.B) {
 		return false
 	}
 
@@ -113,11 +79,11 @@ func (p *Point) Equal(q *Point) bool {
 		return false
 	}
 
-	return p.x.Equal(q.x) && p.y.Equal(q.y)
+	return p.X.Equal(q.X) && p.Y.Equal(q.Y)
 }
 
 func (p *Point) EqualEllipticCurve(q *Point) bool {
-	return p.a.Equal(q.a) && p.b.Equal(q.b)
+	return p.A.Equal(q.A) && p.B.Equal(q.B)
 }
 
 // String returns the string representation of a field element.
@@ -128,32 +94,32 @@ func (p *Point) String() string {
 		return "Point(nil)"
 	}
 
-	if p.a != nil && p.a.Value != nil {
-		aVal = p.a.Value.String()
+	if p.A != nil && p.A.Value != nil {
+		aVal = p.A.Value.String()
 	} else {
 		aVal = "<nil>"
 	}
 
-	if p.b != nil && p.b.Value != nil {
-		bVal = p.b.Value.String()
+	if p.B != nil && p.B.Value != nil {
+		bVal = p.B.Value.String()
 	} else {
 		bVal = "<nil>"
 	}
 
-	if p.a.Prime != nil {
-		xPrime = p.a.Prime.String()
+	if p.A.Prime != nil {
+		xPrime = p.A.Prime.String()
 	} else {
 		xPrime = "<nil>"
 	}
 
-	if p.x != nil && p.x.Value != nil {
-		xVal = p.x.Value.String()
+	if p.X != nil && p.X.Value != nil {
+		xVal = p.X.Value.String()
 	} else {
 		xVal = "inf"
 	}
 
-	if p.y != nil && p.y.Value != nil {
-		yVal = p.y.Value.String()
+	if p.Y != nil && p.Y.Value != nil {
+		yVal = p.Y.Value.String()
 	} else {
 		yVal = "inf"
 	}
@@ -164,7 +130,7 @@ func (p *Point) String() string {
 // Copy returns a new Point with the same values as the current Point.
 func (p *Point) Copy() (*Point, error) {
 	// TODO add unittest
-	return NewPoint(p.x, p.y, p.a, p.b)
+	return NewPoint(p.X, p.Y, p.A, p.B)
 }
 
 // Add performs the addition of two elliptic curve points (p and q).
@@ -187,15 +153,15 @@ func (p *Point) Add(q *Point) (*Point, error) {
 	// Handle special cases
 	// Exception when the tangent line is vertical, then return the identity point
 	if p.Equal(q) && p.isVerticalTangent(q) {
-		return NewPoint(nil, nil, p.a, p.b)
+		return NewPoint(nil, nil, p.A, p.B)
 	}
 	// Check if the points are additive inverses of each other, then return point at infinity (identity)
-	y2_neg, err := q.y.Negate()
+	y2_neg, err := q.Y.Negate()
 	if err != nil {
 		return nil, err
 	}
-	if p.Equal(&Point{q.x, y2_neg, p.a, p.b}) {
-		return NewPoint(nil, nil, p.a, p.b)
+	if p.Equal(&Point{q.X, y2_neg, p.A, p.B}) {
+		return NewPoint(nil, nil, p.A, p.B)
 	}
 
 	// Calculate the sum of the points using the elliptic curve addition rules
@@ -214,7 +180,7 @@ func (p *Point) Add(q *Point) (*Point, error) {
 		return nil, err
 	}
 
-	return NewPoint(x3, y3, p.a, p.b)
+	return NewPoint(x3, y3, p.A, p.B)
 }
 
 func (p *Point) calculateSlope(q *Point) (*finitefield.FieldElement, error) {
@@ -230,7 +196,7 @@ func (p *Point) calculateSlope(q *Point) (*finitefield.FieldElement, error) {
 }
 
 func (p *Point) isVerticalTangent(q *Point) bool {
-	return p.Equal(q) && p.y.Value.Cmp(big.NewInt(0)) == 0
+	return p.Equal(q) && p.Y.Value.Cmp(big.NewInt(0)) == 0
 }
 
 func (p *Point) calculateX3(q *Point, slope *finitefield.FieldElement) (*finitefield.FieldElement, error) {
@@ -239,7 +205,7 @@ func (p *Point) calculateX3(q *Point, slope *finitefield.FieldElement) (*finitef
 		return nil, err
 	}
 
-	xTotal, err := p.x.Add(q.x)
+	xTotal, err := p.X.Add(q.X)
 	if err != nil {
 		return nil, err
 	}
@@ -253,7 +219,7 @@ func (p *Point) calculateX3(q *Point, slope *finitefield.FieldElement) (*finitef
 }
 
 func (p *Point) calculateY3(q *Point, x3 *finitefield.FieldElement, slope *finitefield.FieldElement) (*finitefield.FieldElement, error) {
-	dx13, err := p.x.Subtract(x3)
+	dx13, err := p.X.Subtract(x3)
 	if err != nil {
 		return nil, err
 	}
@@ -263,7 +229,7 @@ func (p *Point) calculateY3(q *Point, x3 *finitefield.FieldElement, slope *finit
 		return nil, err
 	}
 
-	y3, err := slopedx13.Subtract(p.y)
+	y3, err := slopedx13.Subtract(p.Y)
 	if err != nil {
 		return nil, err
 	}
@@ -275,11 +241,11 @@ func (p *Point) calculateY3(q *Point, x3 *finitefield.FieldElement, slope *finit
 func (p *Point) calculatedxdy(q *Point) (*finitefield.FieldElement, *finitefield.FieldElement, error) {
 	if p.Equal(q) {
 		// In this case we need to compute the differential
-		three, err := finitefield.NewFieldElement(big.NewInt(3), p.x.Prime)
+		three, err := finitefield.NewFieldElement(big.NewInt(3), p.X.Prime)
 		if err != nil {
 			return nil, nil, err
 		}
-		dy, err := p.x.Squared()
+		dy, err := p.X.Squared()
 		if err != nil {
 			return nil, nil, err
 		}
@@ -287,22 +253,22 @@ func (p *Point) calculatedxdy(q *Point) (*finitefield.FieldElement, *finitefield
 		if err != nil {
 			return nil, nil, err
 		}
-		dy, err = dy.Add(p.a)
+		dy, err = dy.Add(p.A)
 		if err != nil {
 			return nil, nil, err
 		}
-		dx, err := p.y.Add(p.y)
+		dx, err := p.Y.Add(p.Y)
 		if err != nil {
 			return nil, nil, err
 		}
 		return dx, dy, nil
 	}
-	dy, err := q.y.Subtract(p.y)
+	dy, err := q.Y.Subtract(p.Y)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	dx, err := q.x.Subtract(p.x)
+	dx, err := q.X.Subtract(p.X)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -315,7 +281,7 @@ func (p *Point) ScalarMultiplication(coefficient *big.Int) (*Point, error) {
 		return nil, fmt.Errorf("coefficient must be positive")
 	}
 	// We start the result at the identity element
-	result, err := NewPoint(nil, nil, p.a, p.b)
+	result, err := NewPoint(nil, nil, p.A, p.B)
 	if err != nil {
 		return nil, err
 	}
@@ -344,26 +310,4 @@ func (p *Point) ScalarMultiplication(coefficient *big.Int) (*Point, error) {
 		}
 	}
 	return result, nil
-}
-
-type S256Point struct {
-	Point
-}
-
-func NewS256Point(x, y *finitefield.S256FieldElement) (*S256Point, error) {
-	p, err := NewPoint(&x.FieldElement, &y.FieldElement, &A.FieldElement, &B.FieldElement)
-	if err != nil {
-		return nil, err
-	}
-	return &S256Point{*p}, nil
-}
-
-func (p256 *S256Point) ScalarMultiplication(coefficient *big.Int) (*S256Point, error) {
-	// We mod by N because that is the order of the Group generated by this specific point.
-	// In other words, every n times we cycle back to the identiy.
-	p, err := p256.Point.ScalarMultiplication(new(big.Int).Mod(coefficient, N))
-	if err != nil {
-		return nil, err
-	}
-	return &S256Point{*p}, nil
 }

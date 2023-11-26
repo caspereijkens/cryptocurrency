@@ -5,30 +5,10 @@ import (
 	"math/big"
 )
 
-var (
-	S256Prime = getS256Prime()
-)
-
 // FieldElement represents an element in a finite field.
 type FieldElement struct {
 	Value *big.Int
 	Prime *big.Int
-}
-
-func getS256Prime() *big.Int {
-	two := big.NewInt(2)
-	p := new(big.Int)
-
-	// Calculate 2^256
-	twoToThe256 := new(big.Int).Exp(two, big.NewInt(256), nil)
-
-	// Calculate 2^32
-	twoToThe32 := new(big.Int).Exp(two, big.NewInt(32), nil)
-
-	// Subtract 2^32 and 977 from 2^256
-	p.Sub(twoToThe256, twoToThe32)
-	p.Sub(p, big.NewInt(977))
-	return p
 }
 
 // NewFieldElement creates a new FieldElement with the given value and prime.
@@ -102,9 +82,6 @@ func (a *FieldElement) Negate() (*FieldElement, error) {
 
 // String returns the string representation of a field element.
 func (a *FieldElement) String() string {
-	if a.Prime.Cmp(S256Prime) == 0 {
-		return fmt.Sprintf("%064x", a.Value)
-	}
 	return fmt.Sprintf("FieldElement_%s(%s)", a.Prime.String(), a.Value.String())
 }
 
@@ -123,18 +100,4 @@ func (a *FieldElement) Divide(b *FieldElement) (*FieldElement, error) {
 	}
 	result := new(big.Int).Mul(a.Value, inverse)
 	return NewFieldElement(result.Mod(result, a.Prime), a.Prime)
-}
-
-// S256FieldElement represents a field element with a fixed prime for secp256k1.
-type S256FieldElement struct {
-	FieldElement
-}
-
-// NewS256FieldElement creates a new Secp256k1FieldElement with the fixed prime.
-func NewS256FieldElement(value *big.Int) (*S256FieldElement, error) {
-	f, err := NewFieldElement(value, S256Prime)
-	if err != nil {
-		return nil, err
-	}
-	return &S256FieldElement{*f}, nil
 }
