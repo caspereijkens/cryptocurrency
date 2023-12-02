@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/caspereijkens/cryptocurrency/internal/ellipticcurve"
-	"github.com/caspereijkens/cryptocurrency/internal/util"
 )
 
 // TestSignatureVerification checks the signature verification process.
@@ -128,17 +127,40 @@ func createEllipticCurvePoint(x, y *big.Int) (*S256Point, error) {
 	return NewS256Point(px, py)
 }
 
-func TestXxx(t *testing.T) {
-	e := util.Hash256ToBigInt("my secret")
-	z := util.Hash256ToBigInt("my message")
-	k := big.NewInt(1234567890)
-	R, _ := G.ScalarMultiplication(k)
-	r := R.X.Value
-	kInv := new(big.Int).ModInverse(k, N)
-	s := new(big.Int).Mod(new(big.Int).Mul(new(big.Int).Add(new(big.Int).Mul(r, e), z), kInv), N)
-	point, _ := G.ScalarMultiplication(e)
-	fmt.Printf("%s", point.String())
-	fmt.Printf("%x", z)
-	fmt.Printf("%x", r)
-	fmt.Printf("%x", s)
-}
+// func TestSignatureAlgorithm(t *testing.T) {
+// 	// This function creates a signature.
+// 	// It computes the parts of the signature r, s and z.
+// 	// z is simply a message that is hashed. It is called the signature hash.
+// 	// r is a random number that is created by scalar multiplication of G, the generator point G.
+// 	// G generates a finite cyclic group. This operation on this group is point addition.
+// 	// The identity element of this group is of course the identity element of the elliptic curve.
+
+// 	e := util.Hash256ToBigInt("my secret")
+// 	z := util.Hash256ToBigInt("my message")
+// 	k := big.NewInt(1234567890)
+
+// 	// Calculate the target R
+// 	R, _ := G.ScalarMultiplication(k)
+
+// 	// Calculate r, the x-value of target R
+// 	r := R.X.Value
+
+// 	// Calculate r * e
+// 	re := new(big.Int).Mul(r, e)
+
+// 	// Calculate re + z
+// 	rePlusZ := new(big.Int).Add(re, z)
+
+// 	// Calculate (re + z) * kInv
+// 	kInv := new(big.Int).ModInverse(k, N)
+// 	product := new(big.Int).Mul(rePlusZ, kInv)
+
+// 	// Modulo with N to get the final result
+// 	s := new(big.Int).Mod(product, N)
+
+// 	point, _ := G.ScalarMultiplication(e)
+// 	fmt.Printf("%s", point.String())
+// 	fmt.Printf("%x", z)
+// 	fmt.Printf("%x", r)
+// 	fmt.Printf("%x", s)
+// }
