@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/caspereijkens/cryptocurrency/internal/ellipticcurve"
+	"github.com/caspereijkens/cryptocurrency/internal/util"
 )
 
 // TestSignatureVerification checks the signature verification process.
@@ -89,6 +90,104 @@ func TestSignatureString(t *testing.T) {
 	}
 }
 
+func TestSignAndVerify(t *testing.T) {
+	privKey, err := NewPrivateKey(util.Hash256ToBigInt("my secret"))
+	if err != nil {
+		t.Errorf("failed to create private key: %v", err)
+	}
+	z := util.Hash256ToBigInt("my message")
+	k := big.NewInt(1234567890)
+	sig, err := privKey.Sign(z)
+	if err != nil {
+		t.Errorf("Signing failed with private '%08x', signature hash '%08x' and random number k '%s'", privKey, z, k.String())
+	}
+	P, _ := G.ScalarMultiplication(privKey.Secret)
+	if !P.Verify(z, sig) {
+		t.Errorf("Signature verification failed  private '%08x', signature hash '%08x' and random number k '%s'", privKey, z, k.String())
+	}
+}
+
+// This test shows the importance of choosing a random k every time you sign.
+// If our secret is e and we are reusing k to sign z1 and z2:
+// kG = (r,y)
+// s1 = (z1 + re)/k, s2 = (z2 + re)/k
+// s1/s2 = (z1 + re) / (z2 + re)
+// s1(z2 + re) = s2(z1 +re)
+// s1z2 + s1re = s2z1 + s2re
+// s1re - s2re = s2z1 - s1z2
+// e = (s2z1 - s1z2) / (s1r - s2r)
+// func TestImportanceOfUniqueK(t *testing.T) {
+// 	e := util.Hash256ToBigInt("my secret")
+// 	z1 := util.Hash256ToBigInt("my first message")
+// 	z2 := util.Hash256ToBigInt("my second message")
+// 	k := big.NewInt(1234567890)
+// 	sig1, _ := Sign(e, z1)
+// 	sig2, _ := Sign(e, z2)
+// 	if sig1.R.Cmp(sig2.R) != 0 {
+// 		t.Error("Same random number k should lead to same r")
+// 	}
+// 	r := sig1.R
+// 	s2z1 := new(big.Int).Mul(sig2.S, z1)
+// 	s1z2 := new(big.Int).Mul(sig1.S, z2)
+// 	rs1 := new(big.Int).Mul(r, sig1.S)
+// 	rs2 := new(big.Int).Mul(r, sig2.S)
+// 	num := new(big.Int).Sub(s2z1, s1z2)
+// 	denom := new(big.Int).ModInverse(new(big.Int).Sub(rs1, rs2), N)
+// 	found_e := new(big.Int).Mul(num, denom)
+// 	if e.Cmp(new(big.Int).Mod(found_e, N)) != 0 {
+// 		t.Error("Could not retrieve private key even though same k was used to sign two messages.")
+// 	}
+// }
+
+func TestNewPrivateKey(t *testing.T) {
+	// Test with valid input
+	validSecret := big.NewInt(12345)
+	expectedPoint, _ := G.ScalarMultiplication(validSecret)
+	privKey, err := NewPrivateKey(validSecret)
+	if err != nil {
+		t.Errorf("NewPrivateKey with valid input returned an error: %v", err)
+	}
+	if privKey == nil {
+		t.Errorf("NewPrivateKey with valid input returned a nil PrivateKey")
+	}
+	if !privKey.Point.Equal(&expectedPoint.Point) {
+		t.Errorf("NewPrivateKey with valid input returned an incorrect public point")
+	}
+}
+
+func TestGetDeterministicK(t *testing.T) {
+	// Define test cases
+	testCases := []struct {
+		name         string
+		secret       *big.Int
+		z            *big.Int
+		expectedKHex string
+	}{
+		{
+			name:         "Test Case 1",
+			secret:       util.Hash256ToBigInt("my secret"),
+			z:            util.Hash256ToBigInt("Hi Mom!"),                                      // Example value for z
+			expectedKHex: "0x5a36ac7d11fc415802c6049fda6ced159feb2044ba9bc61ecb18c8366b64ac65", // Expected output (this should be pre-calculated for a known input)
+		},
+		// Add more test cases as necessary
+	}
+
+	// Run test cases
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			e, err := NewPrivateKey(tc.secret)
+			if err != nil {
+				t.Errorf("failed to create private key: %v", err)
+			}
+			actualK := e.GetDeterministicK(tc.z)
+			expectedK, _ := new(big.Int).SetString(tc.expectedKHex, 0)
+			if actualK.Cmp(expectedK) != 0 {
+				t.Errorf("GetDeterministicK(%v, %v) = %v, want %v", tc.secret, tc.z, actualK, tc.expectedKHex)
+			}
+		})
+	}
+}
+
 // parseSignatureParts parses the signature components from hex strings.
 func parseSignatureParts(parts map[string]string) (z, r, s, x, y *big.Int, err error) {
 	z, ok := new(big.Int).SetString(parts["z"], 0)
@@ -126,41 +225,3 @@ func createEllipticCurvePoint(x, y *big.Int) (*S256Point, error) {
 	}
 	return NewS256Point(px, py)
 }
-
-// func TestSignatureAlgorithm(t *testing.T) {
-// 	// This function creates a signature.
-// 	// It computes the parts of the signature r, s and z.
-// 	// z is simply a message that is hashed. It is called the signature hash.
-// 	// r is a random number that is created by scalar multiplication of G, the generator point G.
-// 	// G generates a finite cyclic group. This operation on this group is point addition.
-// 	// The identity element of this group is of course the identity element of the elliptic curve.
-
-// 	e := util.Hash256ToBigInt("my secret")
-// 	z := util.Hash256ToBigInt("my message")
-// 	k := big.NewInt(1234567890)
-
-// 	// Calculate the target R
-// 	R, _ := G.ScalarMultiplication(k)
-
-// 	// Calculate r, the x-value of target R
-// 	r := R.X.Value
-
-// 	// Calculate r * e
-// 	re := new(big.Int).Mul(r, e)
-
-// 	// Calculate re + z
-// 	rePlusZ := new(big.Int).Add(re, z)
-
-// 	// Calculate (re + z) * kInv
-// 	kInv := new(big.Int).ModInverse(k, N)
-// 	product := new(big.Int).Mul(rePlusZ, kInv)
-
-// 	// Modulo with N to get the final result
-// 	s := new(big.Int).Mod(product, N)
-
-// 	point, _ := G.ScalarMultiplication(e)
-// 	fmt.Printf("%s", point.String())
-// 	fmt.Printf("%x", z)
-// 	fmt.Printf("%x", r)
-// 	fmt.Printf("%x", s)
-// }

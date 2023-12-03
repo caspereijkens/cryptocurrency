@@ -2,6 +2,7 @@ package util
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
 	"math/big"
 	"testing"
 )
@@ -47,4 +48,40 @@ func sha256SumToBigIntString(data string) string {
 	bigInt := new(big.Int)
 	bigInt.SetBytes(secondHashBytes)
 	return bigInt.String()
+}
+
+// TestHmacSHA256 tests the hmacSHA256 function
+func TestHmacSHA256(t *testing.T) {
+	// Define test cases
+	testCases := []struct {
+		name        string
+		key         []byte
+		data        []byte
+		expectedHex string // Expected output in hexadecimal format
+	}{
+		{
+			name:        "Empty key and data",
+			key:         []byte(""),
+			data:        []byte(""),
+			expectedHex: "b613679a0814d9ec772f95d778c35fc5ff1697c493715653c6c712144292c5ad",
+		},
+		{
+			name:        "Example key and data",
+			key:         []byte("key"),
+			data:        []byte("The quick brown fox jumps over the lazy dog"),
+			expectedHex: "f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8",
+		},
+		// Add more test cases as necessary
+	}
+
+	// Run test cases
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			actual := HmacSHA256(tc.key, tc.data)
+			actualHex := hex.EncodeToString(actual)
+			if actualHex != tc.expectedHex {
+				t.Errorf("hmacSHA256(%x, %s) = %s, want %s", tc.key, tc.data, actualHex, tc.expectedHex)
+			}
+		})
+	}
 }

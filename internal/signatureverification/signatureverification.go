@@ -8,8 +8,11 @@
 package signatureverification
 
 import (
+	"bytes"
 	"fmt"
 	"math/big"
+
+	"github.com/caspereijkens/cryptocurrency/internal/util"
 )
 
 type Signature struct {
@@ -25,6 +28,11 @@ func (sig *Signature) String() string {
 	return fmt.Sprintf("Signature(%x,%x)", sig.R, sig.S)
 }
 
+// The verification procedure is as follows:
+// 1. We are given (r,s) as the signature, z as the hash of the thing being signed, and P as the public key (or public point) of the signer;
+// 2. We calcualte u = z/s, v = r/s;
+// 3. We calculate uG + vP = R;
+// 4. If R's x-coordinate equals r, the signature is valid;
 func (p256 *S256Point) Verify(z *big.Int, sig *Signature) bool {
 	// Calculate s_inv (modular inverse of s)
 	sInv := new(big.Int).ModInverse(sig.S, N)
@@ -63,4 +71,104 @@ func (p256 *S256Point) Verify(z *big.Int, sig *Signature) bool {
 	}
 
 	return true
+}
+
+type PrivateKey struct {
+	Secret *big.Int
+	Point  *S256Point
+}
+
+func NewPrivateKey(secret *big.Int) (*PrivateKey, error) {
+	point, err := G.ScalarMultiplication(secret)
+	if err != nil {
+		return nil, err
+	}
+	return &PrivateKey{secret, point}, nil
+}
+
+// The signing procedure is as follows:
+// 1. We are given signature hash z and and know private key e such that eG = P;
+// 2. Choose a random k;
+// 3. Calculate R = kG. r is the x-coordinate of R;
+// 4. Calculate s = (z + re)/k;
+// 5. Signature is (r,s);
+func (e *PrivateKey) Sign(z *big.Int) (*Signature, error) {
+
+	if z == nil {
+		return nil, fmt.Errorf("one or more signature inputs were invalid")
+	}
+
+	k := e.GetDeterministicK(z)
+
+	// Calculate the target R
+	R, err := G.ScalarMultiplication(k)
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Calculate r, the x-value of target R
+	r := R.X.Value
+
+	// Calculate r * e
+	re := new(big.Int).Mul(r, e.Secret)
+
+	// Calculate re + z
+	rePlusZ := new(big.Int).Add(re, z)
+
+	// Calculate (re + z) * kInv
+	kInv := new(big.Int).ModInverse(k, N)
+	product := new(big.Int).Mul(rePlusZ, kInv)
+
+	// Modulo with N to get the final result
+	s := new(big.Int).Mod(product, N)
+
+	// P, err := G.ScalarMultiplication(e)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return NewSignature(r, s), nil
+}
+
+// Deterministic k generation standard that uses the secret and z to create a unique, deterministic k every time.
+// Specification is in RFC 6979
+// If our secret is e and we are reusing k to sign z1 and z2:
+// kG = (r,y)
+// s1 = (z1 + re)/k, s2 = (z2 + re)/k
+// s1/s2 = (z1 + re) / (z2 + re)
+// s1(z2 + re) = s2(z1 +re)
+// s1z2 + s1re = s2z1 + s2re
+// s1re - s2re = s2z1 - s1z2
+// e = (s2z1 - s1z2) / (s1r - s2r)
+func (e *PrivateKey) GetDeterministicK(z *big.Int) *big.Int {
+	// Ensure z is within the correct range
+	if z.Cmp(N) > 0 {
+		z.Sub(z, N)
+	}
+
+	k := make([]byte, 32)
+	v := bytes.Repeat([]byte{0x01}, 32)
+	zBytes := z.FillBytes(make([]byte, 32))
+	secretBytes := e.Secret.FillBytes(make([]byte, 32))
+
+	// Updating k and v
+	k = util.HmacSHA256(k, append(append(v, 0x00), append(secretBytes, zBytes...)...))
+	v = util.HmacSHA256(k, v)
+	k = util.HmacSHA256(k, append(append(v, 0x01), append(secretBytes, zBytes...)...))
+	v = util.HmacSHA256(k, v)
+
+	candidate := new(big.Int)
+	for {
+		v = util.HmacSHA256(k, v)
+		candidate.SetBytes(v)
+
+		if candidate.Cmp(big.NewInt(1)) >= 0 && candidate.Cmp(N) < 0 {
+			return candidate
+		}
+
+		k = util.HmacSHA256(k, append(v, 0x00))
+		v = util.HmacSHA256(k, v)
+	}
 }
