@@ -1,6 +1,7 @@
 package signatureverification
 
 import (
+	"bytes"
 	"fmt"
 	"math/big"
 	"testing"
@@ -104,6 +105,127 @@ func TestSignAndVerify(t *testing.T) {
 	P, _ := G.ScalarMultiplication(privKey.Secret)
 	if !P.Verify(z, sig) {
 		t.Errorf("Signature verification failed  private '%08x', signature hash '%08x' and random number k '%s'", privKey, z, k.String())
+	}
+}
+
+func TestSerializeS256Point(t *testing.T) {
+	// Define the test case struct
+	type testCase struct {
+		name        string
+		secret      *big.Int
+		compressed  bool
+		expectedSec []byte
+		secLength   int
+	}
+
+	// Create a slice of test cases
+	testCases := []testCase{
+		{
+			name:        "Test Case 1",
+			secret:      big.NewInt(5000),
+			compressed:  false,
+			expectedSec: []byte{4, 255, 229, 88, 227, 136, 133, 47, 1, 32, 228, 106, 242, 209, 179, 112, 248, 88, 84, 168, 235, 8, 65, 129, 30, 206, 14, 62, 3, 210, 130, 213, 124, 49, 93, 199, 40, 144, 164, 241, 10, 20, 129, 192, 49, 176, 59, 53, 27, 13, 199, 153, 1, 202, 24, 160, 12, 240, 9, 219, 219, 21, 122, 29, 16},
+			secLength:   65,
+		},
+		{
+			name:        "Test Case 2",
+			secret:      new(big.Int).Exp(big.NewInt(2018), big.NewInt(5), nil),
+			compressed:  false,
+			expectedSec: []byte{4, 2, 127, 61, 161, 145, 132, 85, 224, 60, 70, 246, 89, 38, 106, 27, 181, 32, 78, 149, 157, 183, 54, 77, 47, 71, 59, 223, 143, 10, 19, 204, 157, 255, 135, 100, 127, 208, 35, 193, 59, 74, 73, 148, 241, 118, 145, 137, 88, 6, 225, 180, 11, 87, 244, 253, 34, 88, 26, 79, 70, 133, 31, 59, 6},
+			secLength:   65,
+		},
+		{
+			name:        "Test Case 3",
+			secret:      big.NewInt(3917405024756549),
+			compressed:  false,
+			expectedSec: []byte{4, 217, 12, 214, 37, 238, 135, 221, 56, 101, 109, 217, 92, 247, 159, 101, 246, 15, 114, 115, 182, 125, 48, 150, 230, 139, 216, 30, 79, 83, 66, 105, 31, 132, 46, 250, 118, 47, 213, 153, 97, 208, 233, 152, 3, 198, 30, 219, 168, 179, 227, 247, 220, 58, 52, 24, 54, 249, 119, 51, 174, 191, 152, 113, 33},
+			secLength:   65,
+		},
+		{
+			name:        "Test Case 4",
+			secret:      big.NewInt(5001),
+			compressed:  true,
+			expectedSec: []byte{3, 87, 164, 243, 104, 134, 138, 138, 109, 87, 41, 145, 228, 132, 230, 100, 129, 15, 241, 76, 5, 192, 250, 2, 50, 117, 37, 17, 81, 254, 14, 83, 209},
+			secLength:   33,
+		},
+		{
+			name:        "Test Case 5",
+			secret:      new(big.Int).Exp(big.NewInt(2019), big.NewInt(5), nil),
+			compressed:  true,
+			expectedSec: []byte{2, 147, 62, 194, 210, 177, 17, 185, 39, 55, 236, 18, 241, 197, 210, 15, 50, 51, 160, 173, 33, 205, 139, 54, 208, 188, 167, 160, 207, 165, 203, 135, 1},
+			secLength:   33,
+		},
+		{
+			name:        "Test Case 6",
+			secret:      big.NewInt(3917405025026849),
+			compressed:  true,
+			expectedSec: []byte{2, 150, 190, 91, 18, 146, 246, 200, 86, 179, 197, 101, 78, 136, 111, 193, 53, 17, 70, 32, 89, 8, 156, 223, 156, 71, 150, 35, 191, 203, 231, 118, 144},
+			secLength:   33,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			privKey, err := NewPrivateKey(tc.secret)
+			if err != nil {
+				t.Fatalf("failed to create private key: %v", err)
+			}
+
+			sec := privKey.Point.Serialize(tc.compressed)
+
+			if !bytes.Equal(sec, tc.expectedSec) {
+				t.Errorf("Incorrect SEC: %v", sec)
+			}
+
+			if len(sec) != tc.secLength {
+				t.Errorf("Incorrect SEC length: %d", len(sec))
+			}
+		})
+	}
+}
+
+func TestParseSEC(t *testing.T) {
+	type testCase struct {
+		name string
+		sec  []byte
+	}
+
+	// Create a slice of test cases
+	testCases := []testCase{
+		{
+			name: "Test Case 1",
+			sec:  []byte{4, 255, 229, 88, 227, 136, 133, 47, 1, 32, 228, 106, 242, 209, 179, 112, 248, 88, 84, 168, 235, 8, 65, 129, 30, 206, 14, 62, 3, 210, 130, 213, 124, 49, 93, 199, 40, 144, 164, 241, 10, 20, 129, 192, 49, 176, 59, 53, 27, 13, 199, 153, 1, 202, 24, 160, 12, 240, 9, 219, 219, 21, 122, 29, 16},
+		},
+		{
+			name: "Test Case 2",
+			sec:  []byte{4, 2, 127, 61, 161, 145, 132, 85, 224, 60, 70, 246, 89, 38, 106, 27, 181, 32, 78, 149, 157, 183, 54, 77, 47, 71, 59, 223, 143, 10, 19, 204, 157, 255, 135, 100, 127, 208, 35, 193, 59, 74, 73, 148, 241, 118, 145, 137, 88, 6, 225, 180, 11, 87, 244, 253, 34, 88, 26, 79, 70, 133, 31, 59, 6},
+		},
+		{
+			name: "Test Case 3",
+			sec:  []byte{4, 217, 12, 214, 37, 238, 135, 221, 56, 101, 109, 217, 92, 247, 159, 101, 246, 15, 114, 115, 182, 125, 48, 150, 230, 139, 216, 30, 79, 83, 66, 105, 31, 132, 46, 250, 118, 47, 213, 153, 97, 208, 233, 152, 3, 198, 30, 219, 168, 179, 227, 247, 220, 58, 52, 24, 54, 249, 119, 51, 174, 191, 152, 113, 33},
+		},
+		{
+			name: "Test Case 4",
+			sec:  []byte{3, 87, 164, 243, 104, 134, 138, 138, 109, 87, 41, 145, 228, 132, 230, 100, 129, 15, 241, 76, 5, 192, 250, 2, 50, 117, 37, 17, 81, 254, 14, 83, 209},
+		},
+		{
+			name: "Test Case 5",
+			sec:  []byte{2, 147, 62, 194, 210, 177, 17, 185, 39, 55, 236, 18, 241, 197, 210, 15, 50, 51, 160, 173, 33, 205, 139, 54, 208, 188, 167, 160, 207, 165, 203, 135, 1},
+		},
+		{
+			name: "Test Case 6",
+			sec:  []byte{2, 150, 190, 91, 18, 146, 246, 200, 86, 179, 197, 101, 78, 136, 111, 193, 53, 17, 70, 32, 89, 8, 156, 223, 156, 71, 150, 35, 191, 203, 231, 118, 144},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := ParseSEC(tc.sec)
+			if err != nil {
+				t.Errorf("SEC '%v' could not be parsed into a point: %v", tc.sec, err)
+			}
+
+		})
 	}
 }
 

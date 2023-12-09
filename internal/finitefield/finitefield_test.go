@@ -215,6 +215,72 @@ func TestFieldElementCubed(t *testing.T) {
 	}
 }
 
+func TestSqrt(t *testing.T) {
+	tests := []struct {
+		value  string
+		prime  string
+		result string
+	}{
+		{"4", "17", "2"},
+		{"9", "17", "14"},
+		{"16", "17", "4"},
+		// Add more test cases as needed
+	}
+
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("%s_%s", test.value, test.prime), func(t *testing.T) {
+			value, _ := new(big.Int).SetString(test.value, 10)
+			prime, _ := new(big.Int).SetString(test.prime, 10)
+			expected, _ := new(big.Int).SetString(test.result, 10)
+
+			fieldElement := &FieldElement{Value: value, Prime: prime}
+			result, err := fieldElement.Sqrt()
+
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			if result.Value.Cmp(expected) != 0 {
+				t.Errorf("Expected square root: %s, got: %s", expected, result.Value)
+			}
+		})
+	}
+}
+
+func TestGetEvenOddSquareRoots(t *testing.T) {
+	tests := []struct {
+		value string
+		prime string
+		even  string
+		odd   string
+	}{
+		{"4", "17", "2", "15"},
+		{"9", "17", "14", "3"},
+		{"16", "17", "4", "13"},
+		// Add more test cases as needed
+	}
+
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("%s_%s", test.value, test.prime), func(t *testing.T) {
+			value, _ := new(big.Int).SetString(test.value, 10)
+			prime, _ := new(big.Int).SetString(test.prime, 10)
+			expectedEven, _ := new(big.Int).SetString(test.even, 10)
+			expectedOdd, _ := new(big.Int).SetString(test.odd, 10)
+
+			fieldElement := &FieldElement{Value: value, Prime: prime}
+			even, odd, err := fieldElement.GetEvenOddSquareRoots()
+
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			if even.Cmp(expectedEven) != 0 || odd.Cmp(expectedOdd) != 0 {
+				t.Errorf("Expected even: %s, odd: %s; got even: %s, odd: %s", expectedEven, expectedOdd, even, odd)
+			}
+		})
+	}
+}
+
 func TestFieldElementEqual(t *testing.T) {
 	// Test equality of two field elements.
 	a, _ := NewFieldElement(big.NewInt(7), big.NewInt(17))

@@ -50,13 +50,13 @@ func (a *FieldElement) Multiply(b *FieldElement) (*FieldElement, error) {
 	}
 	result := new(big.Int).Mul(a.Value, b.Value)
 	result.Mod(result, a.Prime)
-	return NewFieldElement(result.Mod(result, a.Prime), a.Prime)
+	return NewFieldElement(result, a.Prime)
 }
 
 // Exponentiate computes the exponentiation of a field element to a given power.
 func (a *FieldElement) Exponentiate(power *big.Int) (*FieldElement, error) {
 	result := new(big.Int).Exp(a.Value, power, a.Prime)
-	return NewFieldElement(result.Mod(result, a.Prime), a.Prime)
+	return NewFieldElement(result, a.Prime)
 }
 
 // Squared computes the square of a field element.
@@ -66,6 +66,32 @@ func (a *FieldElement) Squared() (*FieldElement, error) {
 
 func (a *FieldElement) Cubed() (*FieldElement, error) {
 	return a.Exponentiate(big.NewInt(3))
+}
+
+func (a *FieldElement) Sqrt() (*FieldElement, error) {
+	result := new(big.Int).ModSqrt(a.Value, a.Prime)
+	if result == nil {
+		return nil, fmt.Errorf("failed to find square root of field element %s", a.String())
+	}
+	return NewFieldElement(result, a.Prime)
+}
+
+func (a *FieldElement) GetEvenOddSquareRoots() (*big.Int, *big.Int, error) {
+	y, err := a.Sqrt()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	yEven, yOdd := new(big.Int), new(big.Int)
+	if y.Value.Bit(0) == 0 { // even
+		yEven.Set(y.Value)
+		yOdd.Sub(y.Prime, y.Value)
+	} else { // odd
+		yEven.Sub(y.Prime, y.Value)
+		yOdd.Set(y.Value)
+	}
+
+	return yEven, yOdd, nil
 }
 
 // Equal checks if two field elements are equal.

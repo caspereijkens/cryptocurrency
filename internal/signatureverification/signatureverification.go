@@ -73,6 +73,95 @@ func (p256 *S256Point) Verify(z *big.Int, sig *Signature) bool {
 	return true
 }
 
+// The Standards for Efficient Cryptography are rules for writing down ECDSA public keys.
+// There are two ways to serialize elliptic curve points: compressed and uncompressed.
+//
+// Uncompressed
+// Starts with x04, then Px[bytes], and Py[bytes].
+//
+// Compressed
+// In elliptic curve cryptography, for each x on the curve, there are at most two possible y values because of the curve's equation.
+// This is also true for finite fields.
+// If a point (x, y) satisfies the curve's equation y^2 = x^3 + ax + b, then (x, -y) will work too.
+// Also, in a finite field, -y % p = p-y % p. This means if (x, y) satisfies the equation, then (x, p-y) also works.
+// Thus for each x, there are only two possible y points: y or p-y.
+// Since p is a prime number bigger than 2 and odd, y and p-y will always be one even and one odd.
+// We use this fact in the compressed SEC format. Instead of writing the whole y value, we just say if it's even or odd, and give the x value.
+// So, the compressed SEC format is shorter because it turns the y value into just one byte that tells us if it's even or odd.
+func (p256 *S256Point) Serialize(compressed bool) []byte {
+	if compressed {
+		prefix := byte(0x02)
+		if new(big.Int).Mod(p256.Y.Value, big.NewInt(2)).Cmp(big.NewInt(0)) != 0 {
+			prefix = 0x03
+		}
+		xBytes := p256.X.Value.FillBytes(make([]byte, 32))
+		return append([]byte{prefix}, xBytes...)
+	} else {
+		prefix := []byte{byte(0x04)}
+		xBytes := p256.X.Value.FillBytes(make([]byte, 32))
+		yBytes := p256.Y.Value.FillBytes(make([]byte, 32))
+		return append(append(prefix, xBytes...), yBytes...)
+	}
+}
+
+func ParseSEC(sec []byte) (*S256Point, error) {
+	var yField *S256FieldElement
+
+	if len(sec) < 33 {
+		return nil, fmt.Errorf("invalid SEC format")
+	}
+
+	if sec[0] == 4 {
+		// Uncompressed SEC
+		if len(sec) < 65 {
+			return nil, fmt.Errorf("invalid uncompressed SEC format")
+		}
+		xField, err := NewS256FieldElement(new(big.Int).SetBytes(sec[1:33]))
+		if err != nil {
+			return nil, err
+		}
+		yField, err = NewS256FieldElement(new(big.Int).SetBytes(sec[33:65]))
+		if err != nil {
+			return nil, err
+		}
+		return NewS256Point(xField, yField)
+	}
+
+	// Compressed SEC
+	x, err := NewS256FieldElement(new(big.Int).SetBytes(sec[1:]))
+	if err != nil {
+		return nil, err
+	}
+
+	xCubed, err := x.Exponentiate(big.NewInt(3))
+	if err != nil {
+		return nil, err
+	}
+
+	ySquared, err := xCubed.Add(&B.FieldElement)
+	if err != nil {
+		return nil, err
+	}
+
+	yEven, yOdd, err := ySquared.GetEvenOddSquareRoots()
+	if err != nil {
+		return nil, err
+	}
+
+	isEven := sec[0] == 2
+	if isEven {
+		yField, err = NewS256FieldElement(yEven)
+	} else {
+		yField, err = NewS256FieldElement(yOdd)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return NewS256Point(x, yField)
+}
+
 type PrivateKey struct {
 	Secret *big.Int
 	Point  *S256Point
