@@ -1,10 +1,35 @@
 package util
 
 import (
+	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
 	"math/big"
 )
+
+const base58Alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+
+func EncodeBase58(s []byte) string {
+	var mod *big.Int
+	var result []byte
+
+	count := 0
+	for _, c := range s {
+		if c != 0 {
+			break
+		}
+		count++
+	}
+
+	num := new(big.Int).SetBytes(s)
+	prefix := bytes.Repeat([]byte{'1'}, count)
+	for num.Cmp(big.NewInt(0)) > 0 {
+		num, mod = new(big.Int).DivMod(num, big.NewInt(58), new(big.Int))
+		result = append([]byte{base58Alphabet[mod.Int64()]}, result...)
+	}
+
+	return string(append(prefix, result...))
+}
 
 func Hash256ToBigInt(data string) *big.Int {
 	// First SHA-256 hash
