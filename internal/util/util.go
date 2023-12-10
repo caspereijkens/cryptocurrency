@@ -5,6 +5,8 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"math/big"
+
+	"golang.org/x/crypto/ripemd160"
 )
 
 const base58Alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
@@ -83,4 +85,17 @@ func lstripNullBytes(data []byte) []byte {
 		}
 	}
 	return data[i:]
+}
+
+// sha256 followed by ripemd160
+func Hash160(s []byte) []byte {
+	sha256hash := sha256.New()
+	sha256hash.Write(s)
+	sha256Digest := sha256hash.Sum(nil)
+
+	ripemd160hash := ripemd160.New()
+	ripemd160hash.Write(sha256Digest)
+	ripemd160Digest := ripemd160hash.Sum(nil)
+
+	return ripemd160Digest
 }

@@ -130,7 +130,7 @@ func TestLstripNullBytes(t *testing.T) {
 }
 
 func TestEncodeBase58(t *testing.T) {
-	tests := []struct {
+	testsBytes := []struct {
 		input    []byte
 		expected string
 	}{
@@ -143,10 +143,53 @@ func TestEncodeBase58(t *testing.T) {
 		{[]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01}, "11111112"},
 	}
 
-	for _, test := range tests {
+	for _, test := range testsBytes {
 		result := EncodeBase58(test.input)
 		if result != test.expected {
 			t.Errorf("For input %v, expected %s, but got %s", test.input, test.expected, result)
+		}
+	}
+
+	testsHex := []struct {
+		input    string
+		expected string
+	}{
+		{"7c076ff316692a3d7eb3c3bb0f8b1488cf72e1afcd929e29307032997a838a3d", "9MA8fRQrT4u8Zj8ZRd6MAiiyaxb2Y1CMpvVkHQu5hVM6"},
+		{"eff69ef2b1bd93a66ed5219add4fb51e11a840f404876325a1e8ffe0529a2c", "4fE3H2E6XMp4SsxtwinF7w9a34ooUrwWe4WsW1458Pd"},
+		{"c7207fee197d27c618aea621406f6bf5ef6fca38681d82b2f06fddbdce6feab6", "EQJsjkd6JaGwxrjEhfeqPenqHwrBmPQZjJGNSCHBkcF7"},
+	}
+
+	for _, test := range testsHex {
+		sBytes, _ := hex.DecodeString(test.input)
+		result := EncodeBase58(sBytes)
+		if result != test.expected {
+			t.Errorf("For input %v, expected %s, but got %s", test.input, test.expected, result)
+		}
+	}
+}
+
+func TestHash160(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{
+			input:    "hello world",
+			expected: "d7d5ee7824ff93f94c3055af9382c86c68b5ca92",
+		},
+		{
+			input:    "Hi mom!",
+			expected: "eab3813216e715e5830980f3532d44a50df3ce11",
+		},
+	}
+
+	for _, test := range tests {
+		inputBytes := []byte(test.input)
+		result := Hash160(inputBytes)
+		resultHex := hex.EncodeToString(result)
+
+		if resultHex != test.expected {
+			t.Errorf("For input '%s', expected %s but got %s", test.input, test.expected, resultHex)
 		}
 	}
 }
