@@ -29,3 +29,33 @@ func HmacSHA256(key, data []byte) []byte {
 	h.Write(data)
 	return h.Sum(nil)
 }
+
+func SerializeInt(i *big.Int) []byte {
+	bytes := i.FillBytes(make([]byte, 32))
+
+	// Trim leading null bytes
+	bytes = lstripNullBytes(bytes)
+
+	// Add a null byte if the high bit is set
+	if len(bytes) > 0 && bytes[0]&0x80 != 0 {
+		bytes = append([]byte{0x00}, bytes...)
+	}
+
+	// Ensure a non-empty byte slice
+	if len(bytes) == 0 {
+		bytes = []byte{0x00}
+	}
+
+	return bytes
+}
+
+// lstripNullBytes trims leading null bytes from a byte slice
+func lstripNullBytes(data []byte) []byte {
+	var i int
+	for i = 0; i < len(data); i++ {
+		if data[i] != 0 {
+			break
+		}
+	}
+	return data[i:]
+}

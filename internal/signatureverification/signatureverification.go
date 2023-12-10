@@ -28,6 +28,17 @@ func (sig *Signature) String() string {
 	return fmt.Sprintf("Signature(%x,%x)", sig.R, sig.S)
 }
 
+func (sig *Signature) Serialize() []byte {
+	rSerialized := util.SerializeInt(sig.R)
+	sSerialized := util.SerializeInt(sig.S)
+
+	result := append([]byte{0x02, byte(len(rSerialized))}, rSerialized...)
+	result = append(result, []byte{0x02, byte(len(sSerialized))}...)
+	result = append(result, sSerialized...)
+
+	return append([]byte{0x30, byte(len(result))}, result...)
+}
+
 // The verification procedure is as follows:
 // 1. We are given (r,s) as the signature, z as the hash of the thing being signed, and P as the public key (or public point) of the signer;
 // 2. We calcualte u = z/s, v = r/s;

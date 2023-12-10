@@ -1,9 +1,11 @@
 package util
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"math/big"
+	"reflect"
 	"testing"
 )
 
@@ -83,5 +85,46 @@ func TestHmacSHA256(t *testing.T) {
 				t.Errorf("hmacSHA256(%x, %s) = %s, want %s", tc.key, tc.data, actualHex, tc.expectedHex)
 			}
 		})
+	}
+}
+
+func TestSerializeInt(t *testing.T) {
+	tests := []struct {
+		input    *big.Int
+		expected []byte
+	}{
+		{big.NewInt(0), []byte{0x00}},                                         // Zero
+		{big.NewInt(127), []byte{0x7F}},                                       // Positive number below 128 (0x80)
+		{big.NewInt(128), []byte{0x00, 0x80}},                                 // Positive number above 127
+		{new(big.Int).SetBytes([]byte{0x00, 0x81}), []byte{0x00, 0x81}},       // Bytes with high bit set
+		{new(big.Int).SetBytes([]byte{0x00, 0x00, 0x00, 0x00}), []byte{0x00}}, // Null bytes
+	}
+
+	for _, test := range tests {
+		result := SerializeInt(test.input)
+
+		if !bytes.Equal(result, test.expected) {
+			t.Errorf("SerializeInt(%v) returned %v, expected %v", test.input, result, test.expected)
+		}
+	}
+}
+
+func TestLstripNullBytes(t *testing.T) {
+	testCases := []struct {
+		input    []byte
+		expected []byte
+	}{
+		{[]byte{0x00, 0x00, 0x00, 0x01, 0x02}, []byte{0x01, 0x02}},
+		{[]byte{0x00, 0x00, 0x00, 0x00}, []byte{}},
+		{[]byte{0x01, 0x02, 0x03}, []byte{0x01, 0x02, 0x03}},
+		{[]byte{}, []byte{}},
+	}
+
+	for _, testCase := range testCases {
+		result := lstripNullBytes(testCase.input)
+
+		if !reflect.DeepEqual(result, testCase.expected) {
+			t.Errorf("lstripNullBytes(%v) = %v, expected %v", testCase.input, result, testCase.expected)
+		}
 	}
 }
