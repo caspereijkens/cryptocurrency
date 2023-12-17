@@ -115,6 +115,20 @@ func (p256 *S256Point) Serialize(compressed bool) []byte {
 	}
 }
 
+func (p256 *S256Point) Hash160(compressed bool) []byte {
+	return util.Hash160(p256.Serialize(compressed))
+}
+
+func (p256 *S256Point) Address(compressed, testnet bool) string {
+	h160 := p256.Hash160(compressed)
+	if testnet {
+		prefix := []byte{byte(0x6f)}
+		return util.EncodeBase58Checksum(append(prefix, h160...))
+	}
+	prefix := []byte{byte(0x00)}
+	return util.EncodeBase58Checksum(append(prefix, h160...))
+}
+
 func ParseSEC(sec []byte) (*S256Point, error) {
 	var yField *S256FieldElement
 
@@ -271,4 +285,23 @@ func (e *PrivateKey) GetDeterministicK(z *big.Int) *big.Int {
 		k = util.HmacSHA256(k, append(v, 0x00))
 		v = util.HmacSHA256(k, v)
 	}
+}
+
+func (e *PrivateKey) Serialize(compressed bool, testnet bool) string {
+	secretBytes := e.Secret.FillBytes(make([]byte, 32))
+
+	if compressed {
+		secretBytes = append(secretBytes, byte(0x01))
+	}
+
+	var prefix []byte
+	if testnet {
+		prefix = []byte{0xef}
+	} else {
+		prefix = []byte{0x80}
+	}
+
+	payload := append(prefix, secretBytes...)
+
+	return util.EncodeBase58Checksum(payload)
 }

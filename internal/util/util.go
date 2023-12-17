@@ -33,21 +33,30 @@ func EncodeBase58(s []byte) string {
 	return string(append(prefix, result...))
 }
 
-func Hash256ToBigInt(data string) *big.Int {
+// TODO Make unit test
+func EncodeBase58Checksum(data []byte) string {
+	// Calculate the hash256
+	hash256 := Hash256(data)
+
+	dataWithChecksum := append(data, hash256[:4]...)
+
+	base58Encoded := EncodeBase58(dataWithChecksum)
+
+	return base58Encoded
+}
+
+// TODO Make unit test
+func Hash256(data []byte) []byte {
 	// First SHA-256 hash
 	hasher1 := sha256.New()
-	hasher1.Write([]byte(data))
+	hasher1.Write(data)
 	firstHashBytes := hasher1.Sum(nil)
 
 	// Second SHA-256 hash on the result of the first hash
 	hasher2 := sha256.New()
 	hasher2.Write(firstHashBytes)
 	secondHashBytes := hasher2.Sum(nil)
-
-	// Convert the second hash bytes to a big.Int
-	bigInt := new(big.Int)
-	bigInt.SetBytes(secondHashBytes)
-	return bigInt
+	return secondHashBytes
 }
 
 // HmacSHA256 computes the HMAC SHA-256 digest of the data using the given key

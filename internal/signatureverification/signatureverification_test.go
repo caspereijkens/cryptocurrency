@@ -107,11 +107,11 @@ func TestSignatureSerialize(t *testing.T) {
 }
 
 func TestSignAndVerify(t *testing.T) {
-	privKey, err := NewPrivateKey(util.Hash256ToBigInt("my secret"))
+	privKey, err := NewPrivateKey(Hash256ToBigInt("my secret"))
 	if err != nil {
 		t.Errorf("failed to create private key: %v", err)
 	}
-	z := util.Hash256ToBigInt("my message")
+	z := Hash256ToBigInt("my message")
 	k := big.NewInt(1234567890)
 	sig, err := privKey.Sign(z)
 	if err != nil {
@@ -194,6 +194,69 @@ func TestSerializeS256Point(t *testing.T) {
 
 			if len(sec) != tc.secLength {
 				t.Errorf("Incorrect SEC length: %d", len(sec))
+			}
+		})
+	}
+}
+
+func TestS256PointAddress(t *testing.T) {
+	privateKey1, _ := NewPrivateKey(big.NewInt(5002))
+	privateKey2, _ := NewPrivateKey(new(big.Int).Exp(big.NewInt(2020), big.NewInt(5), nil))
+	secret3, _ := new(big.Int).SetString("0x12345deadbeef", 0)
+	privateKey3, _ := NewPrivateKey(secret3)
+
+	// Test cases
+	testCases := []struct {
+		point       *S256Point
+		compressed  bool
+		testnet     bool
+		expected    string
+		description string
+	}{
+		{privateKey1.Point, false, true, "mmTPbXQFxboEtNRkwfh6K51jvdtHLxGeMA", "Uncompressed SEC on testnet"},
+		{privateKey2.Point, true, true, "mopVkxp8UhXqRYbCYJsbeE1h1fiF64jcoH", "Compressed SEC on testnet"},
+		{privateKey3.Point, true, false, "1F1Pn2y6pDb68E5nYJJeba4TLg2U7B6KF1", "Compressed SEC on mainnet"},
+	}
+
+	// Run test cases
+	for _, tc := range testCases {
+		t.Run(tc.description, func(t *testing.T) {
+			result := tc.point.Address(tc.compressed, tc.testnet)
+			if result != tc.expected {
+				t.Errorf("Address() returned %s, expected %s", result, tc.expected)
+			}
+		})
+	}
+}
+
+func TestS256PointHash160(t *testing.T) {
+	privateKey1, _ := NewPrivateKey(big.NewInt(5002))
+	privateKey2, _ := NewPrivateKey(new(big.Int).Exp(big.NewInt(2020), big.NewInt(5), nil))
+	secret3, _ := new(big.Int).SetString("0x12345deadbeef", 0)
+	privateKey3, _ := NewPrivateKey(secret3)
+
+	expected1, _ := hex.DecodeString("41243614aecd13819d7a7f348a4a07fbcb29d8e5")
+	expected2, _ := hex.DecodeString("5b1257a7bb81398208766db21a4959ae068310ea")
+	expected3, _ := hex.DecodeString("99a4c61750789253f69fd750ac0d021263373305")
+
+	// Test cases
+	testCases := []struct {
+		point       *S256Point
+		compressed  bool
+		expected    []byte
+		description string
+	}{
+		{privateKey1.Point, false, expected1, "Uncompressed hash160"},
+		{privateKey2.Point, true, expected2, "Compressed hash160"},
+		{privateKey3.Point, true, expected3, "Compressed hash160"},
+	}
+
+	// Run test cases
+	for _, tc := range testCases {
+		t.Run(tc.description, func(t *testing.T) {
+			result := tc.point.Hash160(tc.compressed)
+			if !bytes.Equal(result, tc.expected) {
+				t.Errorf("Address() returned %x, expected %x", result, tc.expected)
 			}
 		})
 	}
@@ -302,8 +365,8 @@ func TestGetDeterministicK(t *testing.T) {
 	}{
 		{
 			name:         "Test Case 1",
-			secret:       util.Hash256ToBigInt("my secret"),
-			z:            util.Hash256ToBigInt("Hi Mom!"),                                      // Example value for z
+			secret:       Hash256ToBigInt("my secret"),
+			z:            Hash256ToBigInt("Hi Mom!"),                                           // Example value for z
 			expectedKHex: "0x5a36ac7d11fc415802c6049fda6ced159feb2044ba9bc61ecb18c8366b64ac65", // Expected output (this should be pre-calculated for a known input)
 		},
 		// Add more test cases as necessary
@@ -320,6 +383,40 @@ func TestGetDeterministicK(t *testing.T) {
 			expectedK, _ := new(big.Int).SetString(tc.expectedKHex, 0)
 			if actualK.Cmp(expectedK) != 0 {
 				t.Errorf("GetDeterministicK(%v, %v) = %v, want %v", tc.secret, tc.z, actualK, tc.expectedKHex)
+			}
+		})
+	}
+}
+
+func TestPrivateKeySerialize(t *testing.T) {
+	privateKey1, _ := NewPrivateKey(big.NewInt(5003))
+	privateKey2, _ := NewPrivateKey(new(big.Int).Exp(big.NewInt(2021), big.NewInt(5), nil))
+	secret3, _ := new(big.Int).SetString("0x54321deadbeef", 0)
+	privateKey3, _ := NewPrivateKey(secret3)
+
+	expected1 := "cMahea7zqjxrtgAbB7LSGbcQUr1uX1ojuat9jZodMN8rFTv2sfUK"
+	expected2 := "91avARGdfge8E4tZfYLoxeJ5sGBdNJQH4kvjpWAxgzczjbCwxic"
+	expected3 := "KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgiuQJv1h8Ytr2S53a"
+
+	// Test cases
+	testCases := []struct {
+		privateKey  *PrivateKey
+		compressed  bool
+		testnet     bool
+		expected    string
+		description string
+	}{
+		{privateKey1, true, true, expected1, "Compressed, testnet"},
+		{privateKey2, false, true, expected2, "Uncompressed, testnet"},
+		{privateKey3, true, false, expected3, "Compressed, mainnet"},
+	}
+
+	// Run test cases
+	for _, tc := range testCases {
+		t.Run(tc.description, func(t *testing.T) {
+			result := tc.privateKey.Serialize(tc.compressed, tc.testnet)
+			if result != tc.expected {
+				t.Errorf("Serialize() returned \n\n%s, expected \n\n%s", result, tc.expected)
 			}
 		})
 	}
@@ -361,4 +458,14 @@ func createEllipticCurvePoint(x, y *big.Int) (*S256Point, error) {
 		return nil, err
 	}
 	return NewS256Point(px, py)
+}
+
+func Hash256ToBigInt(data string) *big.Int {
+	// First SHA-256 hash
+	hash256 := util.Hash256([]byte(data))
+
+	// Convert the second hash bytes to a big.Int
+	bigInt := new(big.Int)
+	bigInt.SetBytes(hash256)
+	return bigInt
 }
