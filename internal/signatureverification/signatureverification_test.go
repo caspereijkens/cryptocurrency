@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/caspereijkens/cryptocurrency/internal/ellipticcurve"
-	"github.com/caspereijkens/cryptocurrency/internal/util"
+	"github.com/caspereijkens/cryptocurrency/internal/utils"
 )
 
 // TestSignatureVerification checks the signature verification process.
@@ -317,9 +317,9 @@ func TestParseSEC(t *testing.T) {
 // s1re - s2re = s2z1 - s1z2
 // e = (s2z1 - s1z2) / (s1r - s2r)
 // func TestImportanceOfUniqueK(t *testing.T) {
-// 	e := util.Hash256ToBigInt("my secret")
-// 	z1 := util.Hash256ToBigInt("my first message")
-// 	z2 := util.Hash256ToBigInt("my second message")
+// 	e := utils.Hash256ToBigInt("my secret")
+// 	z1 := utils.Hash256ToBigInt("my first message")
+// 	z2 := utils.Hash256ToBigInt("my second message")
 // 	k := big.NewInt(1234567890)
 // 	sig1, _ := Sign(e, z1)
 // 	sig2, _ := Sign(e, z2)
@@ -462,7 +462,7 @@ func createEllipticCurvePoint(x, y *big.Int) (*S256Point, error) {
 
 func Hash256ToBigInt(data string) *big.Int {
 	// First SHA-256 hash
-	hash256 := util.Hash256([]byte(data))
+	hash256 := utils.Hash256([]byte(data))
 
 	// Convert the second hash bytes to a big.Int
 	bigInt := new(big.Int)
