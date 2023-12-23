@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/caspereijkens/cryptocurrency/internal/util"
+	"github.com/caspereijkens/cryptocurrency/internal/utils"
 )
 
 type Signature struct {
@@ -29,8 +29,8 @@ func (sig *Signature) String() string {
 }
 
 func (sig *Signature) Serialize() []byte {
-	rSerialized := util.SerializeInt(sig.R)
-	sSerialized := util.SerializeInt(sig.S)
+	rSerialized := utils.SerializeInt(sig.R)
+	sSerialized := utils.SerializeInt(sig.S)
 
 	result := append([]byte{0x02, byte(len(rSerialized))}, rSerialized...)
 	result = append(result, []byte{0x02, byte(len(sSerialized))}...)
@@ -116,17 +116,17 @@ func (p256 *S256Point) Serialize(compressed bool) []byte {
 }
 
 func (p256 *S256Point) Hash160(compressed bool) []byte {
-	return util.Hash160(p256.Serialize(compressed))
+	return utils.Hash160(p256.Serialize(compressed))
 }
 
 func (p256 *S256Point) Address(compressed, testnet bool) string {
 	h160 := p256.Hash160(compressed)
 	if testnet {
 		prefix := []byte{byte(0x6f)}
-		return util.EncodeBase58Checksum(append(prefix, h160...))
+		return utils.EncodeBase58Checksum(append(prefix, h160...))
 	}
 	prefix := []byte{byte(0x00)}
-	return util.EncodeBase58Checksum(append(prefix, h160...))
+	return utils.EncodeBase58Checksum(append(prefix, h160...))
 }
 
 func ParseSEC(sec []byte) (*S256Point, error) {
@@ -268,22 +268,22 @@ func (e *PrivateKey) GetDeterministicK(z *big.Int) *big.Int {
 	secretBytes := e.Secret.FillBytes(make([]byte, 32))
 
 	// Updating k and v
-	k = util.HmacSHA256(k, append(append(v, 0x00), append(secretBytes, zBytes...)...))
-	v = util.HmacSHA256(k, v)
-	k = util.HmacSHA256(k, append(append(v, 0x01), append(secretBytes, zBytes...)...))
-	v = util.HmacSHA256(k, v)
+	k = utils.HmacSHA256(k, append(append(v, 0x00), append(secretBytes, zBytes...)...))
+	v = utils.HmacSHA256(k, v)
+	k = utils.HmacSHA256(k, append(append(v, 0x01), append(secretBytes, zBytes...)...))
+	v = utils.HmacSHA256(k, v)
 
 	candidate := new(big.Int)
 	for {
-		v = util.HmacSHA256(k, v)
+		v = utils.HmacSHA256(k, v)
 		candidate.SetBytes(v)
 
 		if candidate.Cmp(big.NewInt(1)) >= 0 && candidate.Cmp(N) < 0 {
 			return candidate
 		}
 
-		k = util.HmacSHA256(k, append(v, 0x00))
-		v = util.HmacSHA256(k, v)
+		k = utils.HmacSHA256(k, append(v, 0x00))
+		v = utils.HmacSHA256(k, v)
 	}
 }
 
@@ -303,5 +303,5 @@ func (e *PrivateKey) Serialize(compressed bool, testnet bool) string {
 
 	payload := append(prefix, secretBytes...)
 
-	return util.EncodeBase58Checksum(payload)
+	return utils.EncodeBase58Checksum(payload)
 }

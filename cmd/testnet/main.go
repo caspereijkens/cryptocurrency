@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/caspereijkens/cryptocurrency/internal/signatureverification"
-	"github.com/caspereijkens/cryptocurrency/internal/util"
+	"github.com/caspereijkens/cryptocurrency/internal/utils"
 )
 
 func main() {
@@ -23,7 +23,7 @@ func main() {
 		data = scanner.Text()
 	}
 	fmt.Print("\n")
-	hash256 := util.Hash256([]byte(data))
+	hash256 := utils.Hash256([]byte(data))
 
 	// Convert the second hash bytes to a big.Int
 	bigInt := new(big.Int)
