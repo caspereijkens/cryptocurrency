@@ -165,7 +165,7 @@ func opNop(stack *Stack) (bool, error) {
 // TODO opIf and opNotIf
 
 func opVerify(stack *Stack) (bool, error) {
-	element, err := pop(stack)
+	element, err := stack.pop(-1)
 
 	if err != nil {
 		return false, err
@@ -179,7 +179,7 @@ func opReturn(stack *Stack) (bool, error) {
 }
 
 func opToAltStack(stack, altStack *Stack) (bool, error) {
-	element, err := pop(stack)
+	element, err := stack.pop(-1)
 
 	if err != nil {
 		return false, err
@@ -191,7 +191,7 @@ func opToAltStack(stack, altStack *Stack) (bool, error) {
 }
 
 func opFromAltStack(stack, altStack *Stack) (bool, error) {
-	element, err := pop(altStack)
+	element, err := altStack.pop(-1)
 
 	if err != nil {
 		return false, err
@@ -281,7 +281,7 @@ func opDepth(stack *Stack) (bool, error) {
 }
 
 func opDrop(stack *Stack) (bool, error) {
-	_, err := pop(stack)
+	_, err := stack.pop(-1)
 
 	if err != nil {
 		return false, err
@@ -322,7 +322,7 @@ func opOver(stack *Stack) (bool, error) {
 }
 
 func opPick(stack *Stack) (bool, error) {
-	element, err := pop(stack)
+	element, err := stack.pop(-1)
 
 	if err != nil {
 		return false, err
@@ -340,7 +340,7 @@ func opPick(stack *Stack) (bool, error) {
 }
 
 func opRoll(stack *Stack) (bool, error) {
-	element, err := pop(stack)
+	element, err := stack.pop(-1)
 
 	if err != nil {
 		return false, err
@@ -361,13 +361,21 @@ func opRoll(stack *Stack) (bool, error) {
 	return true, nil
 }
 
-func pop(stack *Stack) ([]byte, error) {
+func (stack *Stack) pop(index int) ([]byte, error) {
 	if len(*stack) < 1 {
 		return nil, fmt.Errorf("stack is empty")
 	}
 
-	element := (*stack)[len(*stack)-1]
-	*stack = (*stack)[:len(*stack)-1]
+	if index < 0 {
+		index = len(*stack) + index
+	}
+
+	if index < 0 || index >= len(*stack) {
+		return nil, fmt.Errorf("index out of bounds")
+	}
+
+	element := (*stack)[index]
+	*stack = append((*stack)[:index], (*stack)[index+1:]...)
 
 	return element, nil
 }
