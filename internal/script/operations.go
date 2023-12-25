@@ -1,6 +1,8 @@
 package script
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type Stack [][]byte
 
@@ -163,12 +165,11 @@ func opNop(stack *Stack) (bool, error) {
 // TODO opIf and opNotIf
 
 func opVerify(stack *Stack) (bool, error) {
-	if len(*stack) < 1 {
-		return false, fmt.Errorf("no elements in stack")
-	}
+	element, err := pop(stack)
 
-	element := (*stack)[len(*stack)-1]
-	*stack = (*stack)[:len(*stack)-1]
+	if err != nil {
+		return false, err
+	}
 
 	return (decodeNum(element) != 0), nil
 }
@@ -178,23 +179,25 @@ func opReturn(stack *Stack) (bool, error) {
 }
 
 func opToAltStack(stack, altStack *Stack) (bool, error) {
-	if len(*stack) < 1 {
-		return false, fmt.Errorf("no elements in stack")
+	element, err := pop(stack)
+
+	if err != nil {
+		return false, err
 	}
 
-	*altStack = append(*altStack, (*stack)[len(*stack)-1])
-	*stack = (*stack)[:len(*stack)-1]
+	*altStack = append(*altStack, element)
 
 	return true, nil
 }
 
 func opFromAltStack(stack, altStack *Stack) (bool, error) {
-	if len(*altStack) < 1 {
-		return false, fmt.Errorf("no elements in stack")
+	element, err := pop(altStack)
+
+	if err != nil {
+		return false, err
 	}
 
-	*stack = append(*stack, (*altStack)[len(*altStack)-1])
-	*altStack = (*altStack)[:len(*altStack)-1]
+	*stack = append(*stack, element)
 
 	return true, nil
 }
@@ -260,12 +263,13 @@ func op2Swap(stack *Stack) (bool, error) {
 
 func opIfDup(stack *Stack) (bool, error) {
 	if len(*stack) < 1 {
-		return false, fmt.Errorf("no elements in stack")
+		return false, fmt.Errorf("stack is empty")
 	}
 
-	lastElement := (*stack)[len(*stack)-1]
-	if decodeNum(lastElement) != 0 {
-		*stack = append(*stack, lastElement)
+	element := (*stack)[len(*stack)-1]
+
+	if decodeNum(element) != 0 {
+		*stack = append(*stack, element)
 	}
 
 	return true, nil
@@ -277,21 +281,23 @@ func opDepth(stack *Stack) (bool, error) {
 }
 
 func opDrop(stack *Stack) (bool, error) {
-	if len(*stack) < 1 {
-		return false, fmt.Errorf("no elements in stack")
+	_, err := pop(stack)
+
+	if err != nil {
+		return false, err
 	}
 
-	*stack = (*stack)[:len(*stack)-1]
 	return true, nil
 }
 
 func opDup(stack *Stack) (bool, error) {
 	if len(*stack) < 1 {
-		return false, fmt.Errorf("no elements in stack")
+		return false, fmt.Errorf("stack is empty")
 	}
 
-	lastElement := (*stack)[len(*stack)-1]
-	*stack = append(*stack, lastElement)
+	element := (*stack)[len(*stack)-1]
+
+	*stack = append(*stack, element)
 
 	return true, nil
 }
@@ -316,12 +322,13 @@ func opOver(stack *Stack) (bool, error) {
 }
 
 func opPick(stack *Stack) (bool, error) {
-	if len(*stack) < 1 {
-		return false, fmt.Errorf("no elements in stack")
+	element, err := pop(stack)
+
+	if err != nil {
+		return false, err
 	}
 
-	n := decodeNum((*stack)[len(*stack)-1])
-	*stack = (*stack)[:len(*stack)-1]
+	n := decodeNum(element)
 
 	if len(*stack) < n+1 {
 		return false, fmt.Errorf("not enough elements in stack: %d < %d", len(*stack), n+1)
@@ -333,12 +340,13 @@ func opPick(stack *Stack) (bool, error) {
 }
 
 func opRoll(stack *Stack) (bool, error) {
-	if len(*stack) < 1 {
-		return false, fmt.Errorf("no elements in stack")
+	element, err := pop(stack)
+
+	if err != nil {
+		return false, err
 	}
 
-	n := decodeNum((*stack)[len(*stack)-1])
-	*stack = (*stack)[:len(*stack)-1]
+	n := decodeNum(element)
 
 	if len(*stack) < n+1 {
 		return false, fmt.Errorf("not enough elements in stack: %d < %d", len(*stack), n+1)
@@ -351,4 +359,15 @@ func opRoll(stack *Stack) (bool, error) {
 	}
 
 	return true, nil
+}
+
+func pop(stack *Stack) ([]byte, error) {
+	if len(*stack) < 1 {
+		return nil, fmt.Errorf("stack is empty")
+	}
+
+	element := (*stack)[len(*stack)-1]
+	*stack = (*stack)[:len(*stack)-1]
+
+	return element, nil
 }
