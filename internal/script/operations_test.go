@@ -897,6 +897,75 @@ func TestOpGreaterThanOrEqual(t *testing.T) {
 	}
 }
 
+func TestOpMin(t *testing.T) {
+	// Test case 1: Test when the stack is empty
+	emptyStack := Stack{}
+	resultEmptyStack, err := opMin(&emptyStack)
+	if resultEmptyStack || err == nil {
+		t.Errorf("opMin failed for empty stack. Expected false, nil; got true, %v", err)
+	}
+
+	// Test case 2: Test when the stack has at least 2 elements, element1 < element2
+	stackMin := Stack{encodeNum(13), encodeNum(42)}
+	resultMin, err := opMin(&stackMin)
+	if !resultMin || err != nil || len(stackMin) != 1 || !bytes.Equal(stackMin[len(stackMin)-1], encodeNum(13)) {
+		t.Errorf("opMin failed for stack with element1 < element2. Unexpected state after the operation")
+	}
+
+	// Test case 3: Test when the stack has at least 2 elements, element1 >= element2
+	stackNotMin := Stack{encodeNum(42), encodeNum(13)}
+	resultNotMin, err := opMin(&stackNotMin)
+	if !resultNotMin || err != nil || len(stackNotMin) != 1 || !bytes.Equal(stackNotMin[len(stackNotMin)-1], encodeNum(13)) {
+		t.Errorf("opMin failed for stack with element1 >= element2. Unexpected state after the operation")
+	}
+}
+
+func TestOpMax(t *testing.T) {
+	// Test case 1: Test when the stack is empty
+	emptyStack := Stack{}
+	resultEmptyStack, err := opMax(&emptyStack)
+	if resultEmptyStack || err == nil {
+		t.Errorf("opMax failed for empty stack. Expected false, nil; got true, %v", err)
+	}
+
+	// Test case 2: Test when the stack has at least 2 elements, element1 > element2
+	stackMax := Stack{encodeNum(42), encodeNum(13)}
+	resultMax, err := opMax(&stackMax)
+	if !resultMax || err != nil || len(stackMax) != 1 || !bytes.Equal(stackMax[len(stackMax)-1], encodeNum(42)) {
+		t.Errorf("opMax failed for stack with element1 > element2. Unexpected state after the operation")
+	}
+
+	// Test case 3: Test when the stack has at least 2 elements, element1 <= element2
+	stackNotMax := Stack{encodeNum(13), encodeNum(42)}
+	resultNotMax, err := opMax(&stackNotMax)
+	if !resultNotMax || err != nil || len(stackNotMax) != 1 || !bytes.Equal(stackNotMax[len(stackNotMax)-1], encodeNum(42)) {
+		t.Errorf("opMax failed for stack with element1 <= element2. Unexpected state after the operation")
+	}
+}
+
+func TestOpWithin(t *testing.T) {
+	// Test case 1: Test when the stack is empty
+	emptyStack := Stack{}
+	resultEmptyStack, err := opWithin(&emptyStack)
+	if resultEmptyStack || err == nil {
+		t.Errorf("opWithin failed for empty stack. Expected false, nil; got true, %v", err)
+	}
+
+	// Test case 2: Test when the stack has at least 3 elements, element inside range
+	stackWithin := Stack{encodeNum(15), encodeNum(10), encodeNum(20)}
+	resultWithin, err := opWithin(&stackWithin)
+	if !resultWithin || err != nil || len(stackWithin) != 1 || !bytes.Equal(stackWithin[len(stackWithin)-1], encodeNum(1)) {
+		t.Errorf("opWithin failed for stack with element inside range. Unexpected state after the operation")
+	}
+
+	// Test case 3: Test when the stack has at least 3 elements, element outside range
+	stackNotWithin := Stack{encodeNum(25), encodeNum(10), encodeNum(20)}
+	resultNotWithin, err := opWithin(&stackNotWithin)
+	if !resultNotWithin || err != nil || len(stackNotWithin) != 1 || !bytes.Equal(stackNotWithin[len(stackNotWithin)-1], encodeNum(0)) {
+		t.Errorf("opWithin failed for stack with element outside range. Unexpected state after the operation")
+	}
+}
+
 func performOperation(op func(*Stack) (bool, error), stack *Stack, expected int, t *testing.T) {
 	op(stack)
 	result := decodeNum((*stack)[len(*stack)-1])

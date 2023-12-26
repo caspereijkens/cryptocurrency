@@ -785,6 +785,74 @@ func opGreaterThanOrEqual(stack *Stack) (bool, error) {
 	return true, nil
 }
 
+func opMin(stack *Stack) (bool, error) {
+	if len(*stack) < 2 {
+		return false, fmt.Errorf("not enough elements in stack: %d < 2", len(*stack))
+	}
+
+	element1, err := stack.pop(-1)
+	if err != nil {
+		return false, err
+	}
+
+	element2, err := stack.pop(-1)
+	if err != nil {
+		return false, err
+	}
+
+	stack.push(encodeNum(min(decodeNum(element1), decodeNum(element2))))
+	return true, nil
+}
+
+func opMax(stack *Stack) (bool, error) {
+	if len(*stack) < 2 {
+		return false, fmt.Errorf("not enough elements in stack: %d < 2", len(*stack))
+	}
+
+	element1, err := stack.pop(-1)
+	if err != nil {
+		return false, err
+	}
+
+	element2, err := stack.pop(-1)
+	if err != nil {
+		return false, err
+	}
+
+	stack.push(encodeNum(max(decodeNum(element1), decodeNum(element2))))
+	return true, nil
+}
+
+func opWithin(stack *Stack) (bool, error) {
+	if len(*stack) < 3 {
+		return false, fmt.Errorf("not enough elements in stack: %d < 3", len(*stack))
+	}
+
+	maximum, err := stack.pop(-1)
+	if err != nil {
+		return false, err
+	}
+
+	minimum, err := stack.pop(-1)
+	if err != nil {
+		return false, err
+	}
+
+	element, err := stack.pop(-1)
+	if err != nil {
+		return false, err
+	}
+
+	var within int
+
+	if decodeNum(element) >= decodeNum(minimum) && decodeNum(element) < decodeNum(maximum) {
+		within = 1
+	}
+
+	stack.push(encodeNum(within))
+	return true, nil
+}
+
 func (s *Stack) push(value []byte) {
 	*s = append(*s, value)
 }
