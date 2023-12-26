@@ -631,6 +631,160 @@ func opBoolOr(stack *Stack) (bool, error) {
 	return true, nil
 }
 
+func opNumEqual(stack *Stack) (bool, error) {
+	if len(*stack) < 2 {
+		return false, fmt.Errorf("not enough elements in stack: %d < 2", len(*stack))
+	}
+
+	element1, err := stack.pop(-1)
+	if err != nil {
+		return false, err
+	}
+
+	element2, err := stack.pop(-1)
+	if err != nil {
+		return false, err
+	}
+
+	if decodeNum(element1) != decodeNum(element2) {
+		stack.push(encodeNum(0))
+		return true, nil
+	}
+
+	stack.push(encodeNum(1))
+	return true, nil
+}
+
+func opNumEqualVerify(stack *Stack) (bool, error) {
+	resultNumEqual, err := opNumEqual(stack)
+
+	if err != nil || !resultNumEqual {
+		return false, err
+	}
+
+	return opVerify(stack)
+}
+
+func opNumNotEqual(stack *Stack) (bool, error) {
+	if len(*stack) < 2 {
+		return false, fmt.Errorf("not enough elements in stack: %d < 2", len(*stack))
+	}
+
+	element1, err := stack.pop(-1)
+	if err != nil {
+		return false, err
+	}
+
+	element2, err := stack.pop(-1)
+	if err != nil {
+		return false, err
+	}
+
+	if decodeNum(element1) == decodeNum(element2) {
+		stack.push(encodeNum(0))
+		return true, nil
+	}
+
+	stack.push(encodeNum(1))
+	return true, nil
+}
+
+func opLessThan(stack *Stack) (bool, error) {
+	if len(*stack) < 2 {
+		return false, fmt.Errorf("not enough elements in stack: %d < 2", len(*stack))
+	}
+
+	element1, err := stack.pop(-1)
+	if err != nil {
+		return false, err
+	}
+
+	element2, err := stack.pop(-1)
+	if err != nil {
+		return false, err
+	}
+
+	if decodeNum(element2) >= decodeNum(element1) {
+		stack.push(encodeNum(0))
+		return true, nil
+	}
+
+	stack.push(encodeNum(1))
+	return true, nil
+}
+
+func opGreaterThan(stack *Stack) (bool, error) {
+	if len(*stack) < 2 {
+		return false, fmt.Errorf("not enough elements in stack: %d < 2", len(*stack))
+	}
+
+	element1, err := stack.pop(-1)
+	if err != nil {
+		return false, err
+	}
+
+	element2, err := stack.pop(-1)
+	if err != nil {
+		return false, err
+	}
+
+	if decodeNum(element2) <= decodeNum(element1) {
+		stack.push(encodeNum(0))
+		return true, nil
+	}
+
+	stack.push(encodeNum(1))
+	return true, nil
+}
+
+func opLessThanOrEqual(stack *Stack) (bool, error) {
+	if len(*stack) < 2 {
+		return false, fmt.Errorf("not enough elements in stack: %d < 2", len(*stack))
+	}
+
+	element1, err := stack.pop(-1)
+	if err != nil {
+		return false, err
+	}
+
+	element2, err := stack.pop(-1)
+	if err != nil {
+		return false, err
+	}
+
+	if decodeNum(element2) > decodeNum(element1) {
+		stack.push(encodeNum(0))
+		return true, nil
+	}
+
+	stack.push(encodeNum(1))
+	return true, nil
+}
+
+func opGreaterThanOrEqual(stack *Stack) (bool, error) {
+	if len(*stack) < 2 {
+		return false, fmt.Errorf("not enough elements in stack: %d < 2", len(*stack))
+	}
+
+	element1, err := stack.pop(-1)
+	if err != nil {
+		return false, err
+	}
+
+	element2, err := stack.pop(-1)
+	if err != nil {
+		return false, err
+	}
+
+	if decodeNum(element2) < decodeNum(element1) {
+		stack.push(encodeNum(0))
+		return true, nil
+	}
+
+	stack.push(encodeNum(1))
+	return true, nil
+}
+
 func (s *Stack) push(value []byte) {
 	*s = append(*s, value)
 }
