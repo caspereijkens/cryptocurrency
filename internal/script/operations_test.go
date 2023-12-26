@@ -387,6 +387,261 @@ func TestOpRoll(t *testing.T) {
 	}
 }
 
+func TestOpRot(t *testing.T) {
+	// Test case 1: Test when the stack is empty
+	emptyStack := Stack{}
+	resultEmptyStack, err := opRot(&emptyStack)
+	if resultEmptyStack || err == nil {
+		t.Errorf("opRot failed for empty stack. Expected false, got true")
+	}
+
+	// Test case 2: Test when the stack has less than 3 elements
+	stackLessThan3 := Stack{encodeNum(1), encodeNum(2)}
+	resultLessThan3, err := opRot(&stackLessThan3)
+	if resultLessThan3 || err == nil || len(stackLessThan3) != 2 {
+		t.Errorf("opRot failed for stack with less than 3 elements. Unexpected state after the operation")
+	}
+
+	// Test case 3: Test when the stack has 3 or more elements
+	stack3OrMore := Stack{encodeNum(1), encodeNum(2), encodeNum(3), encodeNum(4)}
+	result3OrMore, err := opRot(&stack3OrMore)
+	if !result3OrMore || err != nil || len(stack3OrMore) != 4 || decodeNum(stack3OrMore[3]) != 2 {
+		t.Errorf("opRot failed for stack with 3 or more elements. Unexpected state after the operation")
+	}
+}
+
+func TestOpSwap(t *testing.T) {
+	// Test case 1: Test when the stack is empty
+	emptyStack := Stack{}
+	resultEmptyStack, err := opSwap(&emptyStack)
+	if resultEmptyStack || err == nil {
+		t.Errorf("opSwap failed for empty stack. Expected false, got true")
+	}
+
+	// Test case 2: Test when the stack has less than 2 elements
+	stackLessThan2 := Stack{encodeNum(1)}
+	resultLessThan2, err := opSwap(&stackLessThan2)
+	if resultLessThan2 || err == nil || len(stackLessThan2) != 1 {
+		t.Errorf("opSwap failed for stack with less than 2 elements. Unexpected state after the operation")
+	}
+
+	// Test case 3: Test when the stack has 2 or more elements
+	stack2OrMore := Stack{encodeNum(1), encodeNum(2), encodeNum(3)}
+	result2OrMore, err := opSwap(&stack2OrMore)
+	if !result2OrMore || err != nil || len(stack2OrMore) != 3 || decodeNum(stack2OrMore[2]) != 2 {
+		t.Errorf("opSwap failed for stack with 2 or more elements. Unexpected state after the operation")
+	}
+}
+
+func TestOpTuck(t *testing.T) {
+	// Test case 1: Test when the stack is empty
+	emptyStack := Stack{}
+	resultEmptyStack, err := opTuck(&emptyStack)
+	if resultEmptyStack || err == nil {
+		t.Errorf("opTuck failed for empty stack. Expected false, got true")
+	}
+
+	// Test case 2: Test when the stack has less than 1 element
+	stackLessThan2 := Stack{encodeNum(1)}
+	resultLessThan1, err := opTuck(&stackLessThan2)
+	if resultLessThan1 || err == nil || len(stackLessThan2) != 1 {
+		t.Errorf("opTuck failed for stack with less than 1 element. Unexpected state after the operation")
+	}
+
+	// Test case 3: Test when the stack has 1 or more elements
+	stack2OrMore := Stack{encodeNum(1), encodeNum(2), encodeNum(3)}
+	result1OrMore, err := opTuck(&stack2OrMore)
+	if !result1OrMore || err != nil || len(stack2OrMore) != 4 || decodeNum(stack2OrMore[3]) != 3 {
+		t.Errorf("opTuck failed for stack with 1 or more elements. Unexpected state after the operation")
+	}
+}
+
+func TestOpSize(t *testing.T) {
+	// Test case 1: Test when the stack is empty
+	emptyStack := Stack{}
+	resultEmptyStack, err := opSize(&emptyStack)
+	if resultEmptyStack || err == nil || err.Error() != "stack is empty" {
+		t.Errorf("opSize failed for empty stack. Expected false, error 'stack is empty'; got true, %v", err)
+	}
+
+	// Test case 2: Test when the stack has at least 1 element
+	stackWithElement := Stack{[]byte{1, 2, 3}}
+	resultWithElement, err := opSize(&stackWithElement)
+	if !resultWithElement || err != nil || len(stackWithElement) != 2 || decodeNum(stackWithElement[len(stackWithElement)-1]) != 3 {
+		t.Errorf("opSize failed for stack with at least 1 element. Unexpected state after the operation")
+	}
+}
+
+func TestOpEqual(t *testing.T) {
+	// Test case 1: Test when the stack is empty
+	emptyStack := Stack{}
+	resultEmptyStack, err := opEqual(&emptyStack)
+	if resultEmptyStack || err == nil || err.Error() != "not enough elements in stack: 0 < 2" {
+		t.Errorf("opEqual failed for empty stack. Expected false, error 'not enough elements in stack: 0 < 2'; got true, %v", err)
+	}
+
+	// Test case 2: Test when the stack has less than 2 elements
+	stackLessThan2 := Stack{[]byte{1}}
+	resultLessThan2, err := opEqual(&stackLessThan2)
+	if resultLessThan2 || err == nil || err.Error() != "not enough elements in stack: 1 < 2" {
+		t.Errorf("opEqual failed for stack with less than 2 elements. Expected false, error 'not enough elements in stack: 1 < 2'; got true, %v", err)
+	}
+
+	// Test case 3: Test when the stack has 2 or more elements, and they are equal
+	stackEqual := Stack{[]byte{1, 2, 3}, []byte{1, 2, 3}}
+	resultEqual, err := opEqual(&stackEqual)
+	if !resultEqual || err != nil || len(stackEqual) != 1 || decodeNum(stackEqual[len(stackEqual)-1]) != 1 {
+		t.Errorf("opEqual failed for stack with equal elements. Unexpected state after the operation")
+	}
+
+	// Test case 4: Test when the stack has 2 or more elements, and they are not equal
+	stackNotEqual := Stack{[]byte{1, 2, 3}, []byte{4, 5, 6}}
+	resultNotEqual, err := opEqual(&stackNotEqual)
+	if !resultNotEqual || err != nil || len(stackNotEqual) != 1 || decodeNum(stackNotEqual[len(stackEqual)-1]) != 0 {
+		t.Errorf("opEqual failed for stack with non-equal elements. Unexpected state after the operation")
+	}
+}
+
+func TestOpEqualVerify(t *testing.T) {
+	// Test case 1: Test when opEqual and opVerify both succeed
+	stackEqualVerify := Stack{[]byte{1, 2, 3}, []byte{1, 2, 3}}
+	resultEqualVerify, err := opEqualVerify(&stackEqualVerify)
+	if !resultEqualVerify || err != nil || len(stackEqualVerify) != 0 {
+		t.Errorf("opEqualVerify failed for stack with equal elements. Unexpected state after the operation")
+	}
+
+	// Test case 2: Test when opEqual fails
+	stackNotEqualVerify := Stack{[]byte{1, 2, 3}, []byte{4, 5, 6}}
+	resultNotEqualVerify, err := opEqualVerify(&stackNotEqualVerify)
+	if resultNotEqualVerify || err != nil {
+		t.Errorf("opEqualVerify failed for stack with non-equal elements. Expected false, error nil; got true, %v", err)
+	}
+
+	// Test case 3: Test when opVerify fails
+	stackEqualNoVerify := Stack{}
+	resultEqualNoVerify, err := opVerify(&stackEqualNoVerify)
+	if resultEqualNoVerify || err == nil || err.Error() != "stack is empty" {
+		t.Errorf("opEqualVerify failed for stack with equal elements. Expected false, error 'not enough elements in stack: 2 < 1'; got true, %v", err)
+	}
+}
+
+func TestOp1Add(t *testing.T) {
+	// Test case 1: Test when the stack is empty
+	emptyStack := Stack{}
+	resultEmptyStack, err := op1Add(&emptyStack)
+	if resultEmptyStack || err == nil || err.Error() != "stack is empty" {
+		t.Errorf("op1Add failed for empty stack. Expected false, error 'not enough elements in stack: 0 < 1'; got true, %v", err)
+	}
+
+	// Test case 2: Test when the stack has at least 1 element
+	stackWithElement := Stack{[]byte{42}}
+	resultWithElement, err := op1Add(&stackWithElement)
+	if !resultWithElement || err != nil || len(stackWithElement) != 1 || decodeNum(stackWithElement[len(stackWithElement)-1]) != 43 {
+		t.Errorf("op1Add failed for stack with at least 1 element. Unexpected state after the operation")
+	}
+}
+
+func TestOp1Sub(t *testing.T) {
+	// Test case 1: Test when the stack is empty
+	emptyStack := Stack{}
+	resultEmptyStack, err := op1Add(&emptyStack)
+	if resultEmptyStack || err == nil || err.Error() != "stack is empty" {
+		t.Errorf("op1Add failed for empty stack. Expected false, error 'not enough elements in stack: 0 < 1'; got true, %v", err)
+	}
+
+	// Test case 2: Test when the stack has at least 1 element
+	stackWithElement := Stack{[]byte{42}}
+	resultWithElement, err := op1Sub(&stackWithElement)
+	if !resultWithElement || err != nil || len(stackWithElement) != 1 || decodeNum(stackWithElement[len(stackWithElement)-1]) != 41 {
+		t.Errorf("op1Add failed for stack with at least 1 element. Unexpected state after the operation")
+	}
+}
+
+func TestOpNegate(t *testing.T) {
+	// Test case 1: Test when the stack is empty
+	emptyStack := Stack{}
+	resultEmptyStack, err := opNegate(&emptyStack)
+	if resultEmptyStack || err == nil {
+		t.Errorf("opNegate failed for empty stack. Expected false, nil; got true, %v", err)
+	}
+
+	// Test case 2: Test when the stack has at least 1 element
+	stackWithElement := Stack{encodeNum(42)}
+	resultWithElement, err := opNegate(&stackWithElement)
+	if !resultWithElement || err != nil || len(stackWithElement) != 1 || decodeNum(stackWithElement[len(stackWithElement)-1]) != -42 {
+		t.Errorf("opNegate failed for stack with at least 1 element. Unexpected state after the operation")
+	}
+}
+
+func TestOpAbs(t *testing.T) {
+	// Test case 1: Test when the stack is empty
+	emptyStack := Stack{}
+	resultEmptyStack, err := opAbs(&emptyStack)
+	if resultEmptyStack || err == nil {
+		t.Errorf("opAbs failed for empty stack. Expected false, nil; got true, %v", err)
+	}
+
+	// Test case 2: Test when the stack has at least 1 element, and it is positive
+	stackPositive := Stack{encodeNum(42)}
+	resultPositive, err := opAbs(&stackPositive)
+	if !resultPositive || err != nil || len(stackPositive) != 1 || !bytes.Equal(stackPositive[len(stackPositive)-1], encodeNum(42)) {
+		t.Errorf("opAbs failed for stack with positive element. Unexpected state after the operation")
+	}
+
+	// Test case 3: Test when the stack has at least 1 element, and it is negative
+	stackNegative := Stack{encodeNum(-42)}
+	resultNegative, err := opAbs(&stackNegative)
+	if !resultNegative || err != nil || len(stackNegative) != 1 || !bytes.Equal(stackNegative[len(stackNegative)-1], encodeNum(42)) {
+		t.Errorf("opAbs failed for stack with negative element. Unexpected state after the operation")
+	}
+}
+
+func TestOpNot(t *testing.T) {
+	// Test case 1: Test when the stack is empty
+	emptyStack := Stack{}
+	resultEmptyStack, err := opNot(&emptyStack)
+	if resultEmptyStack || err == nil {
+		t.Errorf("opNot failed for empty stack. Expected false, nil; got true, %v", err)
+	}
+
+	// Test case 2: Test when the stack has at least 1 element, and it is 0
+	stackZero := Stack{encodeNum(0)}
+	resultZero, err := opNot(&stackZero)
+	if !resultZero || err != nil || len(stackZero) != 1 || !bytes.Equal(stackZero[len(stackZero)-1], encodeNum(1)) {
+		t.Errorf("opNot failed for stack with element 0. Unexpected state after the operation")
+	}
+
+	// Test case 3: Test when the stack has at least 1 element, and it is non-zero
+	stackNonZero := Stack{encodeNum(42)}
+	resultNonZero, err := opNot(&stackNonZero)
+	if !resultNonZero || err != nil || len(stackNonZero) != 1 || !bytes.Equal(stackNonZero[len(stackNonZero)-1], encodeNum(0)) {
+		t.Errorf("opNot failed for stack with non-zero element. Unexpected state after the operation")
+	}
+}
+
+func TestOp0NotEqual(t *testing.T) {
+	// Test case 1: Test when the stack is empty
+	emptyStack := Stack{}
+	resultEmptyStack, err := op0NotEqual(&emptyStack)
+	if resultEmptyStack || err == nil {
+		t.Errorf("op0NotEqual failed for empty stack. Expected false, nil; got true, %v", err)
+	}
+
+	// Test case 2: Test when the stack has at least 1 element, and it is 0
+	stackZero := Stack{encodeNum(0)}
+	resultZero, err := op0NotEqual(&stackZero)
+	if !resultZero || err != nil || len(stackZero) != 1 || !bytes.Equal(stackZero[len(stackZero)-1], encodeNum(0)) {
+		t.Errorf("op0NotEqual failed for stack with element 0. Unexpected state after the operation")
+	}
+
+	// Test case 3: Test when the stack has at least 1 element, and it is non-zero
+	stackNonZero := Stack{encodeNum(42)}
+	resultNonZero, err := op0NotEqual(&stackNonZero)
+	if !resultNonZero || err != nil || len(stackNonZero) != 1 || !bytes.Equal(stackNonZero[len(stackNonZero)-1], encodeNum(1)) {
+		t.Errorf("op0NotEqual failed for stack with non-zero element. Unexpected state after the operation")
+	}
+}
+
 func performOperation(op func(*Stack) (bool, error), stack *Stack, expected int, t *testing.T) {
 	op(stack)
 	result := decodeNum((*stack)[len(*stack)-1])

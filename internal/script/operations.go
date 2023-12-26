@@ -1,6 +1,7 @@
 package script
 
 import (
+	"bytes"
 	"fmt"
 )
 
@@ -69,92 +70,92 @@ func decodeNum(element []byte) int {
 }
 
 func op0(stack *Stack) (bool, error) {
-	*stack = append(*stack, encodeNum(0))
+	stack.push(encodeNum(0))
 	return true, nil
 }
 
 func op1Negate(stack *Stack) (bool, error) {
-	*stack = append(*stack, encodeNum(-1))
+	stack.push(encodeNum(-1))
 	return true, nil
 }
 
 func op1(stack *Stack) (bool, error) {
-	*stack = append(*stack, encodeNum(1))
+	stack.push(encodeNum(1))
 	return true, nil
 }
 
 func op2(stack *Stack) (bool, error) {
-	*stack = append(*stack, encodeNum(2))
+	stack.push(encodeNum(2))
 	return true, nil
 }
 
 func op3(stack *Stack) (bool, error) {
-	*stack = append(*stack, encodeNum(3))
+	stack.push(encodeNum(3))
 	return true, nil
 }
 
 func op4(stack *Stack) (bool, error) {
-	*stack = append(*stack, encodeNum(4))
+	stack.push(encodeNum(4))
 	return true, nil
 }
 
 func op5(stack *Stack) (bool, error) {
-	*stack = append(*stack, encodeNum(5))
+	stack.push(encodeNum(5))
 	return true, nil
 }
 
 func op6(stack *Stack) (bool, error) {
-	*stack = append(*stack, encodeNum(6))
+	stack.push(encodeNum(6))
 	return true, nil
 }
 
 func op7(stack *Stack) (bool, error) {
-	*stack = append(*stack, encodeNum(7))
+	stack.push(encodeNum(7))
 	return true, nil
 }
 
 func op8(stack *Stack) (bool, error) {
-	*stack = append(*stack, encodeNum(8))
+	stack.push(encodeNum(8))
 	return true, nil
 }
 
 func op9(stack *Stack) (bool, error) {
-	*stack = append(*stack, encodeNum(9))
+	stack.push(encodeNum(9))
 	return true, nil
 }
 
 func op10(stack *Stack) (bool, error) {
-	*stack = append(*stack, encodeNum(10))
+	stack.push(encodeNum(10))
 	return true, nil
 }
 
 func op11(stack *Stack) (bool, error) {
-	*stack = append(*stack, encodeNum(11))
+	stack.push(encodeNum(11))
 	return true, nil
 }
 
 func op12(stack *Stack) (bool, error) {
-	*stack = append(*stack, encodeNum(12))
+	stack.push(encodeNum(12))
 	return true, nil
 }
 
 func op13(stack *Stack) (bool, error) {
-	*stack = append(*stack, encodeNum(13))
+	stack.push(encodeNum(13))
 	return true, nil
 }
 
 func op14(stack *Stack) (bool, error) {
-	*stack = append(*stack, encodeNum(14))
+	stack.push(encodeNum(14))
 	return true, nil
 }
 
 func op15(stack *Stack) (bool, error) {
-	*stack = append(*stack, encodeNum(15))
+	stack.push(encodeNum(15))
 	return true, nil
 }
 
 func op16(stack *Stack) (bool, error) {
-	*stack = append(*stack, encodeNum(16))
+	stack.push(encodeNum(16))
 	return true, nil
 }
 
@@ -197,7 +198,7 @@ func opFromAltStack(stack, altStack *Stack) (bool, error) {
 		return false, err
 	}
 
-	*stack = append(*stack, element)
+	stack.push(element)
 
 	return true, nil
 }
@@ -269,14 +270,14 @@ func opIfDup(stack *Stack) (bool, error) {
 	element := (*stack)[len(*stack)-1]
 
 	if decodeNum(element) != 0 {
-		*stack = append(*stack, element)
+		stack.push(element)
 	}
 
 	return true, nil
 }
 
 func opDepth(stack *Stack) (bool, error) {
-	*stack = append(*stack, encodeNum(len(*stack)))
+	stack.push(encodeNum(len(*stack)))
 	return true, nil
 }
 
@@ -297,7 +298,7 @@ func opDup(stack *Stack) (bool, error) {
 
 	element := (*stack)[len(*stack)-1]
 
-	*stack = append(*stack, element)
+	stack.push(element)
 
 	return true, nil
 }
@@ -316,7 +317,7 @@ func opOver(stack *Stack) (bool, error) {
 		return false, fmt.Errorf("not enough elements in stack: %d < 2", len(*stack))
 	}
 
-	*stack = append(*stack, (*stack)[len(*stack)-2])
+	stack.push((*stack)[len(*stack)-2])
 
 	return true, nil
 }
@@ -334,7 +335,7 @@ func opPick(stack *Stack) (bool, error) {
 		return false, fmt.Errorf("not enough elements in stack: %d < %d", len(*stack), n+1)
 	}
 
-	*stack = append(*stack, (*stack)[len(*stack)-n-1])
+	stack.push((*stack)[len(*stack)-n-1])
 
 	return true, nil
 }
@@ -355,10 +356,178 @@ func opRoll(stack *Stack) (bool, error) {
 	if n > 0 {
 		rolled := (*stack)[len(*stack)-n-1]
 		*stack = append((*stack)[:len(*stack)-n-1], (*stack)[len(*stack)-n:]...)
-		*stack = append(*stack, rolled)
+		stack.push(rolled)
 	}
 
 	return true, nil
+}
+
+func opRot(stack *Stack) (bool, error) {
+	element, err := stack.pop(-3)
+
+	if err != nil {
+		return false, err
+	}
+
+	stack.push(element)
+	return true, nil
+}
+
+func opSwap(stack *Stack) (bool, error) {
+	element, err := stack.pop(-2)
+
+	if err != nil {
+		return false, err
+	}
+
+	stack.push(element)
+	return true, nil
+}
+
+func opTuck(stack *Stack) (bool, error) {
+	if len(*stack) < 2 {
+		return false, fmt.Errorf("not enough elements in stack: %d < 2", len(*stack))
+	}
+
+	err := stack.insert(-2, (*stack)[len(*stack)-1])
+
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
+// pushes the size of the last item on the stack
+func opSize(stack *Stack) (bool, error) {
+	if len(*stack) < 1 {
+		return false, fmt.Errorf("stack is empty")
+	}
+
+	element := (*stack)[len(*stack)-1]
+	stack.push(encodeNum(len(element)))
+	return true, nil
+}
+
+func opEqual(stack *Stack) (bool, error) {
+	if len(*stack) < 2 {
+		return false, fmt.Errorf("not enough elements in stack: %d < 2", len(*stack))
+	}
+
+	element1, err := stack.pop(-1)
+	if err != nil {
+		return false, err
+	}
+
+	element2, err := stack.pop(-1)
+	if err != nil {
+		return false, err
+	}
+
+	if !bytes.Equal(element1, element2) {
+		stack.push(encodeNum(0))
+		return true, nil
+	}
+
+	stack.push(encodeNum(1))
+	return true, nil
+}
+
+func opEqualVerify(stack *Stack) (bool, error) {
+	resultEqual, err := opEqual(stack)
+
+	if err != nil || !resultEqual {
+		return false, err
+	}
+
+	return opVerify(stack)
+}
+
+func op1Add(stack *Stack) (bool, error) {
+	element, err := stack.pop(-1)
+
+	if err != nil {
+		return false, err
+	}
+
+	stack.push(encodeNum(decodeNum(element) + 1))
+	return true, nil
+}
+
+func op1Sub(stack *Stack) (bool, error) {
+	element, err := stack.pop(-1)
+
+	if err != nil {
+		return false, err
+	}
+
+	stack.push(encodeNum(decodeNum(element) - 1))
+	return true, nil
+}
+
+func opNegate(stack *Stack) (bool, error) {
+	element, err := stack.pop(-1)
+
+	if err != nil {
+		return false, err
+	}
+
+	stack.push(encodeNum(-decodeNum(element)))
+	return true, nil
+}
+
+func opAbs(stack *Stack) (bool, error) {
+	element, err := stack.pop(-1)
+
+	if err != nil {
+		return false, err
+	}
+
+	if decodeNum(element) < 0 {
+		stack.push(encodeNum(-decodeNum(element)))
+		return true, nil
+	}
+
+	stack.push(encodeNum(decodeNum(element)))
+	return true, nil
+}
+
+func opNot(stack *Stack) (bool, error) {
+	element, err := stack.pop(-1)
+
+	if err != nil {
+		return false, err
+	}
+
+	var notElement int
+
+	if decodeNum(element) == 0 {
+		notElement = 1
+	}
+
+	stack.push(encodeNum(notElement))
+	return true, nil
+}
+
+func op0NotEqual(stack *Stack) (bool, error) {
+	element, err := stack.pop(-1)
+
+	if err != nil {
+		return false, err
+	}
+
+	var notElement int
+
+	if decodeNum(element) != 0 {
+		notElement = 1
+	}
+
+	stack.push(encodeNum(notElement))
+	return true, nil
+}
+
+func (s *Stack) push(value []byte) {
+	*s = append(*s, value)
 }
 
 func (stack *Stack) pop(index int) ([]byte, error) {
@@ -378,4 +547,20 @@ func (stack *Stack) pop(index int) ([]byte, error) {
 	*stack = append((*stack)[:index], (*stack)[index+1:]...)
 
 	return element, nil
+}
+
+func (stack *Stack) insert(index int, element []byte) error {
+	if index < 0 {
+		index = len(*stack) + index + 1
+	}
+
+	if index < 0 || index > len(*stack) {
+		return fmt.Errorf("index out of bounds")
+	}
+
+	stack.push(nil) // Ensure enough capacity for the new element
+	copy((*stack)[index+1:], (*stack)[index:])
+	(*stack)[index] = element
+
+	return nil
 }
