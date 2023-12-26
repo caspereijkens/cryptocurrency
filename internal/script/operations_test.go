@@ -642,6 +642,100 @@ func TestOp0NotEqual(t *testing.T) {
 	}
 }
 
+func TestOpAdd(t *testing.T) {
+	// Test case 1: Test when the stack is empty
+	emptyStack := Stack{}
+	resultEmptyStack, err := opAdd(&emptyStack)
+	if resultEmptyStack || err == nil {
+		t.Errorf("opAdd failed for empty stack. Expected false, nil; got true, %v", err)
+	}
+
+	// Test case 2: Test when the stack has at least 2 elements
+	stackWithElements := Stack{encodeNum(42), encodeNum(13)}
+	resultWithElements, err := opAdd(&stackWithElements)
+	if !resultWithElements || err != nil || len(stackWithElements) != 1 || !bytes.Equal(stackWithElements[len(stackWithElements)-1], encodeNum(55)) {
+		t.Errorf("opAdd failed for stack with at least 2 elements. Unexpected state after the operation")
+	}
+}
+
+func TestOpSub(t *testing.T) {
+	// Test case 1: Test when the stack is empty
+	emptyStack := Stack{}
+	resultEmptyStack, err := opSub(&emptyStack)
+	if resultEmptyStack || err == nil {
+		t.Errorf("opSub failed for empty stack. Expected false, nil; got true, %v", err)
+	}
+
+	// Test case 2: Test when the stack has at least 2 elements
+	stackWithElements := Stack{encodeNum(42), encodeNum(13)}
+	resultWithElements, err := opSub(&stackWithElements)
+	if !resultWithElements || err != nil || len(stackWithElements) != 1 || !bytes.Equal(stackWithElements[len(stackWithElements)-1], encodeNum(29)) {
+		t.Errorf("opSub failed for stack with at least 2 elements. Unexpected state after the operation")
+	}
+}
+
+func TestOpMul(t *testing.T) {
+	// Test case 1: Test when the stack is empty
+	emptyStack := Stack{}
+	resultEmptyStack, err := opMul(&emptyStack)
+	if resultEmptyStack || err == nil {
+		t.Errorf("opMul failed for empty stack. Expected false, nil; got true, %v", err)
+	}
+
+	// Test case 2: Test when the stack has at least 2 elements
+	stackWithElements := Stack{encodeNum(6), encodeNum(7)}
+	resultWithElements, err := opMul(&stackWithElements)
+	if !resultWithElements || err != nil || len(stackWithElements) != 1 || !bytes.Equal(stackWithElements[len(stackWithElements)-1], encodeNum(42)) {
+		t.Errorf("opMul failed for stack with at least 2 elements. Unexpected state after the operation")
+	}
+}
+
+func TestOpBoolAnd(t *testing.T) {
+	// Test case 1: Test when the stack is empty
+	emptyStack := Stack{}
+	resultEmptyStack, err := opBoolAnd(&emptyStack)
+	if resultEmptyStack || err == nil {
+		t.Errorf("opBoolAnd failed for empty stack. Expected false, nil; got true, %v", err)
+	}
+
+	// Test case 2: Test when the stack has at least 2 elements, both non-zero
+	stackNonZero := Stack{encodeNum(1), encodeNum(42)}
+	resultNonZero, err := opBoolAnd(&stackNonZero)
+	if !resultNonZero || err != nil || len(stackNonZero) != 1 || !bytes.Equal(stackNonZero[len(stackNonZero)-1], encodeNum(1)) {
+		t.Errorf("opBoolAnd failed for stack with non-zero elements. Unexpected state after the operation")
+	}
+
+	// Test case 3: Test when the stack has at least 2 elements, one zero
+	stackWithZero := Stack{encodeNum(0), encodeNum(42)}
+	resultWithZero, err := opBoolAnd(&stackWithZero)
+	if !resultWithZero || err != nil || len(stackWithZero) != 1 || !bytes.Equal(stackWithZero[len(stackWithZero)-1], encodeNum(0)) {
+		t.Errorf("opBoolAnd failed for stack with one zero element. Unexpected state after the operation")
+	}
+}
+
+func TestOpBoolOr(t *testing.T) {
+	// Test case 1: Test when the stack is empty
+	emptyStack := Stack{}
+	resultEmptyStack, err := opBoolOr(&emptyStack)
+	if resultEmptyStack || err == nil {
+		t.Errorf("opBoolOr failed for empty stack. Expected false, nil; got true, %v", err)
+	}
+
+	// Test case 2: Test when the stack has at least 2 elements, both non-zero
+	stackNonZero := Stack{encodeNum(1), encodeNum(42)}
+	resultNonZero, err := opBoolOr(&stackNonZero)
+	if !resultNonZero || err != nil || len(stackNonZero) != 1 || !bytes.Equal(stackNonZero[len(stackNonZero)-1], encodeNum(1)) {
+		t.Errorf("opBoolOr failed for stack with non-zero elements. Unexpected state after the operation")
+	}
+
+	// Test case 3: Test when the stack has at least 2 elements, one zero
+	stackWithZero := Stack{encodeNum(0), encodeNum(42)}
+	resultWithZero, err := opBoolOr(&stackWithZero)
+	if !resultWithZero || err != nil || len(stackWithZero) != 1 || !bytes.Equal(stackWithZero[len(stackWithZero)-1], encodeNum(1)) {
+		t.Errorf("opBoolOr failed for stack with one zero element. Unexpected state after the operation")
+	}
+}
+
 func performOperation(op func(*Stack) (bool, error), stack *Stack, expected int, t *testing.T) {
 	op(stack)
 	result := decodeNum((*stack)[len(*stack)-1])

@@ -526,6 +526,111 @@ func op0NotEqual(stack *Stack) (bool, error) {
 	return true, nil
 }
 
+func opAdd(stack *Stack) (bool, error) {
+	if len(*stack) < 2 {
+		return false, fmt.Errorf("not enough elements in stack: %d < 2", len(*stack))
+	}
+
+	element1, err := stack.pop(-1)
+	if err != nil {
+		return false, err
+	}
+
+	element2, err := stack.pop(-1)
+	if err != nil {
+		return false, err
+	}
+
+	stack.push(encodeNum(decodeNum(element1) + decodeNum(element2)))
+	return true, nil
+}
+
+func opSub(stack *Stack) (bool, error) {
+	if len(*stack) < 2 {
+		return false, fmt.Errorf("not enough elements in stack: %d < 2", len(*stack))
+	}
+
+	element1, err := stack.pop(-1)
+	if err != nil {
+		return false, err
+	}
+
+	element2, err := stack.pop(-1)
+	if err != nil {
+		return false, err
+	}
+
+	stack.push(encodeNum(decodeNum(element2) - decodeNum(element1)))
+	return true, nil
+}
+
+func opMul(stack *Stack) (bool, error) {
+	if len(*stack) < 2 {
+		return false, fmt.Errorf("not enough elements in stack: %d < 2", len(*stack))
+	}
+
+	element1, err := stack.pop(-1)
+	if err != nil {
+		return false, err
+	}
+
+	element2, err := stack.pop(-1)
+	if err != nil {
+		return false, err
+	}
+
+	stack.push(encodeNum(decodeNum(element2) * decodeNum(element1)))
+	return true, nil
+}
+
+func opBoolAnd(stack *Stack) (bool, error) {
+	if len(*stack) < 2 {
+		return false, fmt.Errorf("not enough elements in stack: %d < 2", len(*stack))
+	}
+
+	element1, err := stack.pop(-1)
+	if err != nil {
+		return false, err
+	}
+
+	element2, err := stack.pop(-1)
+	if err != nil {
+		return false, err
+	}
+
+	if decodeNum(element1) != 0 && decodeNum(element2) != 0 {
+		stack.push(encodeNum(1))
+		return true, nil
+	}
+
+	stack.push(encodeNum(0))
+	return true, nil
+}
+
+func opBoolOr(stack *Stack) (bool, error) {
+	if len(*stack) < 2 {
+		return false, fmt.Errorf("not enough elements in stack: %d < 2", len(*stack))
+	}
+
+	element1, err := stack.pop(-1)
+	if err != nil {
+		return false, err
+	}
+
+	element2, err := stack.pop(-1)
+	if err != nil {
+		return false, err
+	}
+
+	if decodeNum(element1) != 0 || decodeNum(element2) != 0 {
+		stack.push(encodeNum(1))
+		return true, nil
+	}
+
+	stack.push(encodeNum(0))
+	return true, nil
+}
+
 func (s *Stack) push(value []byte) {
 	*s = append(*s, value)
 }
