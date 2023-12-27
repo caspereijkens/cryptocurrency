@@ -2,8 +2,12 @@ package script
 
 import (
 	"bytes"
+	"crypto/sha1"
+	"crypto/sha256"
 	"fmt"
 	"testing"
+
+	"golang.org/x/crypto/ripemd160"
 )
 
 func TestEncodeDecodeNum(t *testing.T) {
@@ -964,6 +968,66 @@ func TestOpWithin(t *testing.T) {
 	if !resultNotWithin || err != nil || len(stackNotWithin) != 1 || !bytes.Equal(stackNotWithin[len(stackNotWithin)-1], encodeNum(0)) {
 		t.Errorf("opWithin failed for stack with element outside range. Unexpected state after the operation")
 	}
+}
+
+func TestOpRipemd160(t *testing.T) {
+	// Test case 1: Test when the stack is empty
+	emptyStack := Stack{}
+	resultEmptyStack, err := opRipemd160(&emptyStack)
+	if resultEmptyStack || err == nil {
+		t.Errorf("opRipemd160 failed for empty stack. Expected false, nil; got true, %v", err)
+	}
+
+	// Test case 2: Test when the stack has at least 1 element
+	hash := ripemd160.New()
+	hash.Write([]byte("hello"))
+	expected := hash.Sum(nil)
+	stackRipemd160 := Stack{[]byte("hello")}
+	resultRipemd160, err := opRipemd160(&stackRipemd160)
+	if !resultRipemd160 || err != nil || len(stackRipemd160) != 1 || !bytes.Equal(stackRipemd160[len(stackRipemd160)-1], expected) {
+		t.Errorf("opRipemd160 failed for stack with at least 1 element. Unexpected state after the operation")
+	}
+
+}
+
+func TestOpSha1(t *testing.T) {
+	// Test case 1: Test when the stack is empty
+	emptyStack := Stack{}
+	resultEmptyStack, err := opSha1(&emptyStack)
+	if resultEmptyStack || err == nil {
+		t.Errorf("opSha1 failed for empty stack. Expected false, nil; got true, %v", err)
+	}
+
+	// Test case 2: Test when the stack has at least 1 element
+	hash := sha1.New()
+	hash.Write([]byte("hello"))
+	expected := hash.Sum(nil)
+	stackSha1 := Stack{[]byte("hello")}
+	resultSha1, err := opSha1(&stackSha1)
+	if !resultSha1 || err != nil || len(stackSha1) != 1 || !bytes.Equal(stackSha1[len(stackSha1)-1], expected) {
+		t.Errorf("opSha1 failed for stack with at least 1 element. Unexpected state after the operation")
+	}
+
+}
+
+func TestOpSha256(t *testing.T) {
+	// Test case 1: Test when the stack is empty
+	emptyStack := Stack{}
+	resultEmptyStack, err := opSha256(&emptyStack)
+	if resultEmptyStack || err == nil {
+		t.Errorf("opSha256 failed for empty stack. Expected false, nil; got true, %v", err)
+	}
+
+	// Test case 2: Test when the stack has at least 1 element
+	hash := sha256.New()
+	hash.Write([]byte("hello"))
+	expected := hash.Sum(nil)
+	stackSha256 := Stack{[]byte("hello")}
+	resultSha256, err := opSha256(&stackSha256)
+	if !resultSha256 || err != nil || len(stackSha256) != 1 || !bytes.Equal(stackSha256[len(stackSha256)-1], expected) {
+		t.Errorf("opSha256 failed for stack with at least 1 element. Unexpected state after the operation")
+	}
+
 }
 
 func performOperation(op func(*Stack) (bool, error), stack *Stack, expected int, t *testing.T) {

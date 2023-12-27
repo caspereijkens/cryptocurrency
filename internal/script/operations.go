@@ -2,7 +2,11 @@ package script
 
 import (
 	"bytes"
+	"crypto/sha1"
+	"crypto/sha256"
 	"fmt"
+
+	"golang.org/x/crypto/ripemd160"
 )
 
 type Stack [][]byte
@@ -850,6 +854,45 @@ func opWithin(stack *Stack) (bool, error) {
 	}
 
 	stack.push(encodeNum(within))
+	return true, nil
+}
+
+func opRipemd160(stack *Stack) (bool, error) {
+	element, err := stack.pop(-1)
+
+	if err != nil {
+		return false, err
+	}
+
+	hash := ripemd160.New()
+	hash.Write(element)
+	stack.push(hash.Sum(nil))
+	return true, nil
+}
+
+func opSha1(stack *Stack) (bool, error) {
+	element, err := stack.pop(-1)
+
+	if err != nil {
+		return false, err
+	}
+
+	hash := sha1.New()
+	hash.Write(element)
+	stack.push(hash.Sum(nil))
+	return true, nil
+}
+
+func opSha256(stack *Stack) (bool, error) {
+	element, err := stack.pop(-1)
+
+	if err != nil {
+		return false, err
+	}
+
+	hash := sha256.New()
+	hash.Write(element)
+	stack.push(hash.Sum(nil))
 	return true, nil
 }
 
