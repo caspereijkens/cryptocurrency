@@ -947,6 +947,74 @@ func opChecksig(stack *Stack, z *big.Int) (bool, error) {
 	return true, nil
 }
 
+func opChecksigVerify(stack *Stack, z *big.Int) (bool, error) {
+	resultChecksig, err := opChecksig(stack, z)
+
+	if err != nil || !resultChecksig {
+		return false, err
+	}
+
+	return opVerify(stack)
+}
+
+// TODO: opCheckmultisig, opCheckmultisigVerify
+
+func opCheckLockTimeVerify(stack *Stack, locktime, sequence int) (bool, error) {
+	if sequence == 0xffffffff {
+		return false, fmt.Errorf("invalid sequence value")
+	}
+
+	if len(*stack) < 1 {
+		return false, fmt.Errorf("stack is empty")
+	}
+
+	element := decodeNum((*stack)[len(*stack)-1])
+	if element < 0 {
+		return false, fmt.Errorf("negative element in stack")
+	}
+
+	if element < 500000000 && locktime > 500000000 {
+		return false, fmt.Errorf("locktime exceeds 500000000 for element less than 500000000")
+	}
+
+	if locktime < element {
+		return false, fmt.Errorf("locktime is less than element in stack")
+	}
+
+	return true, nil
+}
+
+func opCheckSequenceVerify(stack *Stack, version, sequence int) (bool, error) {
+	if sequence&(1<<31) == (1 << 31) {
+		return false, fmt.Errorf("invalid sequence value")
+	}
+
+	if len(*stack) < 1 {
+		return false, fmt.Errorf("stack is empty")
+	}
+
+	element := decodeNum((*stack)[len(*stack)-1])
+	if element < 0 {
+		return false, fmt.Errorf("negative element in stack")
+	}
+
+	if element&(1<<31) == (1 << 31) {
+		if version < 2 {
+			return false, fmt.Errorf("version is less than 2 for sequence with sign bit set")
+		}
+
+		if element&(1<<22) != sequence&(1<<22) {
+			return false, fmt.Errorf("mismatch in bits 22-31 between element and sequence")
+		}
+
+		if element&0xffff > sequence&0xffff {
+			return false, fmt.Errorf("sequence value is less than element in stack")
+		}
+	}
+
+	return true, nil
+}
+
 func (s *Stack) push(value []byte) {
 	*s = append(*s, value)
 }

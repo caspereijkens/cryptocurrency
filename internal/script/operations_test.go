@@ -1088,6 +1088,147 @@ func TestOpChecksig(t *testing.T) {
 	}
 }
 
+func TestOpChecksigVerify(t *testing.T) {
+	z, _ := new(big.Int).SetString("0x7c076ff316692a3d7eb3c3bb0f8b1488cf72e1afcd929e29307032997a838a3d", 0)
+	// Test case 1: Test when the stack is empty
+
+	emptyStack := Stack{}
+	resultEmptyStack, err := opChecksigVerify(&emptyStack, z)
+	if resultEmptyStack || err == nil {
+		t.Errorf("opChecksigVerify failed for empty stack. Expected false, nil; got true, %v", err)
+	}
+
+	// Test case 2: proper Signature
+	sec, _ := new(big.Int).SetString("0x04887387e452b8eacc4acfde10d9aaf7f6d9a0f975aabb10d006e4da568744d06c61de6d95231cd89026e286df3b6ae4a894a3378e393e93a0f45b666329a0ae34", 0)
+	sig, _ := new(big.Int).SetString("0x3045022000eff69ef2b1bd93a66ed5219add4fb51e11a840f404876325a1e8ffe0529a2c022100c7207fee197d27c618aea621406f6bf5ef6fca38681d82b2f06fddbdce6feab601", 0)
+	signedStack := Stack{sig.Bytes(), sec.Bytes()}
+
+	resultSignedStack, err := opChecksigVerify(&signedStack, z)
+	if !resultSignedStack || err != nil {
+		t.Errorf("opChecksigVerify failed for stack with correct Digital Signature. Unexpected state after the operation")
+	}
+}
+
+func TestOpCheckLockTimeVerify(t *testing.T) {
+	// Test case 1: Invalid sequence value
+	stack := Stack{encodeNum(100)}
+	locktime := 123
+	sequence := 0xffffffff
+	result, err := opCheckLockTimeVerify(&stack, locktime, sequence)
+	if result || err == nil || err.Error() != "invalid sequence value" {
+		t.Errorf("opCheckLockTimeVerify failed for invalid sequence value. Expected false, 'invalid sequence value'; got true, %v", err)
+	}
+
+	// Test case 2: Insufficient elements in stack
+	emptyStack := Stack{}
+	sequence = 0xfffffffe
+	result, err = opCheckLockTimeVerify(&emptyStack, locktime, sequence)
+	if result || err == nil || err.Error() != "stack is empty" {
+		t.Errorf("opCheckLockTimeVerify failed for insufficient elements in stack. Expected false, 'insufficient elements in stack'; got true, %v", err)
+	}
+
+	// Test case 3: Negative element in stack
+	negativeElementStack := Stack{encodeNum(-100)}
+	result, err = opCheckLockTimeVerify(&negativeElementStack, locktime, sequence)
+	if result || err == nil || err.Error() != "negative element in stack" {
+		t.Errorf("opCheckLockTimeVerify failed for negative element in stack. Expected false, 'negative element in stack'; got true, %v", err)
+	}
+
+	// Test case 4: Locktime exceeds 500000000 for element less than 500000000
+	stack = Stack{encodeNum(400000000)}
+	locktime = 600000000
+	result, err = opCheckLockTimeVerify(&stack, locktime, sequence)
+	if result || err == nil || err.Error() != "locktime exceeds 500000000 for element less than 500000000" {
+		t.Errorf("opCheckLockTimeVerify failed for locktime exceeds 500000000 for element less than 500000000. Expected false, 'locktime exceeds 500000000 for element less than 500000000'; got true, %v", err)
+	}
+
+	// Test case 5: Locktime is less than element in stack
+	stack = Stack{encodeNum(600000000)}
+	locktime = 400000000
+	result, err = opCheckLockTimeVerify(&stack, locktime, sequence)
+	if result || err == nil || err.Error() != "locktime is less than element in stack" {
+		t.Errorf("opCheckLockTimeVerify failed for locktime is less than element in stack. Expected false, 'locktime is less than element in stack'; got true, %v", err)
+	}
+
+	// Test case 6: Valid case
+	stack = Stack{encodeNum(122)}
+	locktime = 123
+	result, err = opCheckLockTimeVerify(&stack, locktime, sequence)
+	if !result || err != nil {
+		t.Errorf("opCheckLockTimeVerify failed for valid case. Expected true, nil; got %v, %v", result, err)
+	}
+}
+
+func TestOpCheckSequenceVerify(t *testing.T) {
+	// Test case 1: Invalid sequence value
+	stack := Stack{encodeNum(100)}
+	version := 1
+	sequence := 0xffffffff
+	result, err := opCheckSequenceVerify(&stack, version, sequence)
+	if result || err == nil || err.Error() != "invalid sequence value" {
+		t.Errorf("opCheckSequenceVerify failed for invalid sequence value. Expected false, 'invalid sequence value'; got true, %v", err)
+	}
+
+	// Test case 2: Insufficient elements in stack
+	emptyStack := Stack{}
+	sequence = 0x7FFFFFFF
+	result, err = opCheckSequenceVerify(&emptyStack, version, sequence)
+	if result || err == nil || err.Error() != "stack is empty" {
+		t.Errorf("opCheckSequenceVerify failed for insufficient elements in stack. Expected false, 'insufficient elements in stack'; got true, %v", err)
+	}
+
+	// Test case 3: Negative element in stack
+	negativeElementStack := Stack{encodeNum(-100)}
+	result, err = opCheckSequenceVerify(&negativeElementStack, version, sequence)
+	if result || err == nil || err.Error() != "negative element in stack" {
+		t.Errorf("opCheckSequenceVerify failed for negative element in stack. Expected false, 'negative element in stack'; got true, %v", err)
+	}
+
+	// Test case 4: Version is less than 2 for sequence with sign bit set
+	stack = Stack{encodeNum(0xC0000000)}
+	version = 1
+	sequence = 0x40000000
+	result, err = opCheckSequenceVerify(&stack, version, sequence)
+	if result || err == nil || err.Error() != "version is less than 2 for sequence with sign bit set" {
+		t.Errorf("opCheckSequenceVerify failed for version is less than 2 for sequence with sign bit set. Expected false, 'version is less than 2 for sequence with sign bit set'; got true, %v", err)
+	}
+
+	// Test case 5: Invalid sequence value
+	version = 2
+	sequence = 0xffffffff
+	result, err = opCheckSequenceVerify(&stack, version, sequence)
+	if result || err == nil || err.Error() != "invalid sequence value" {
+		t.Errorf("opCheckSequenceVerify failed for invalid sequence value. Expected false, 'invalid sequence value'; got true, %v", err)
+	}
+
+	// Test case 6: Mismatch in bits 22-31 between element and sequence
+	stack = Stack{encodeNum(0b11111111111111111110000000000000)}
+	version = 2
+	sequence = 0b00000000000000000001111111111111
+	result, err = opCheckSequenceVerify(&stack, version, sequence)
+	if result || err == nil || err.Error() != "mismatch in bits 22-31 between element and sequence" {
+		t.Errorf("opCheckSequenceVerify failed for mismatch in bits 22-31 between element and sequence. Expected false, 'mismatch in bits 22-31 between element and sequence'; got true, %v", err)
+	}
+
+	// Test case 7: Sequence value is less than element in stack
+	stack = Stack{encodeNum(0b11111111111111111111111111111111)}
+	version = 2
+	sequence = 0b01111111111111110000000000000000
+	result, err = opCheckSequenceVerify(&stack, version, sequence)
+	if result || err == nil || err.Error() != "sequence value is less than element in stack" {
+		t.Errorf("opCheckSequenceVerify failed for sequence value is less than element in stack. Expected false, 'sequence value is less than element in stack'; got true, %v", err)
+	}
+
+	// Test case 8: Valid case
+	stack = Stack{encodeNum(0)}
+	version = 2
+	sequence = 0x0020ffff
+	result, err = opCheckSequenceVerify(&stack, version, sequence)
+	if !result || err != nil {
+		t.Errorf("opCheckSequenceVerify failed for valid case. Expected true, nil; got %v, %v", result, err)
+	}
+}
+
 func performOperation(op func(*Stack) (bool, error), stack *Stack, expected int, t *testing.T) {
 	op(stack)
 	result := decodeNum((*stack)[len(*stack)-1])
