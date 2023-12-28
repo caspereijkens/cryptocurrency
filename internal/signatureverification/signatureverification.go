@@ -10,6 +10,7 @@ package signatureverification
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"math/big"
 
 	"github.com/caspereijkens/cryptocurrency/internal/utils"
@@ -37,6 +38,57 @@ func (sig *Signature) Serialize() []byte {
 	result = append(result, sSerialized...)
 
 	return append([]byte{0x30, byte(len(result))}, result...)
+}
+
+func ParseDER(data []byte) (*Signature, error) {
+	reader := bytes.NewReader(data)
+
+	compound, err := reader.ReadByte()
+	if err != nil || compound != 0x30 {
+		return nil, fmt.Errorf("bad signature")
+	}
+
+	length, err := reader.ReadByte()
+	if err != nil || length+2 != byte(len(data)) {
+		return nil, fmt.Errorf("incorrect signature length")
+	}
+
+	r, err := parseBigInt(reader)
+	if err != nil {
+		return nil, err
+	}
+
+	s, err := parseBigInt(reader)
+	if err != nil {
+		return nil, err
+	}
+
+	if length != 6+byte(r.BitLen()/8+s.BitLen()/8) {
+		return nil, fmt.Errorf("Signature too long")
+	}
+
+	return NewSignature(r, s), nil
+}
+
+func parseBigInt(reader *bytes.Reader) (*big.Int, error) {
+	marker, err := reader.ReadByte()
+	if err != nil || marker != 0x02 {
+		return nil, fmt.Errorf("bad Signature")
+	}
+
+	valLength, err := reader.ReadByte()
+	if err != nil {
+		return nil, fmt.Errorf("bad Signature")
+	}
+
+	valBytes := make([]byte, valLength)
+	_, err = io.ReadFull(reader, valBytes)
+	if err != nil {
+		return nil, fmt.Errorf("bad Signature")
+	}
+
+	intVal := new(big.Int).SetBytes(valBytes)
+	return intVal, nil
 }
 
 // The verification procedure is as follows:

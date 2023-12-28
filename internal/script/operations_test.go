@@ -5,8 +5,10 @@ import (
 	"crypto/sha1"
 	"crypto/sha256"
 	"fmt"
+	"math/big"
 	"testing"
 
+	"github.com/caspereijkens/cryptocurrency/internal/utils"
 	"golang.org/x/crypto/ripemd160"
 )
 
@@ -1027,7 +1029,63 @@ func TestOpSha256(t *testing.T) {
 	if !resultSha256 || err != nil || len(stackSha256) != 1 || !bytes.Equal(stackSha256[len(stackSha256)-1], expected) {
 		t.Errorf("opSha256 failed for stack with at least 1 element. Unexpected state after the operation")
 	}
+}
 
+func TestOpHash160(t *testing.T) {
+	// Test case 1: Test when the stack is empty
+	emptyStack := Stack{}
+	resultEmptyStack, err := opHash160(&emptyStack)
+	if resultEmptyStack || err == nil {
+		t.Errorf("opHash160 failed for empty stack. Expected false, nil; got true, %v", err)
+	}
+
+	// Test case 2: Test when the stack has at least 1 element
+	data := []byte("hello")
+	hash160 := utils.Hash160(data)
+	stackHash160 := Stack{data}
+	resultHash160, err := opHash160(&stackHash160)
+	if !resultHash160 || err != nil || len(stackHash160) != 1 || !bytes.Equal(stackHash160[len(stackHash160)-1], hash160) {
+		t.Errorf("opHash160 failed for stack with at least 1 element. Unexpected state after the operation")
+	}
+}
+
+func TestOpHash256(t *testing.T) {
+	// Test case 1: Test when the stack is empty
+	emptyStack := Stack{}
+	resultEmptyStack, err := opHash256(&emptyStack)
+	if resultEmptyStack || err == nil {
+		t.Errorf("opHash256 failed for empty stack. Expected false, nil; got true, %v", err)
+	}
+
+	// Test case 2: Test when the stack has at least 1 element
+	data := []byte("hello")
+	hash256 := utils.Hash256(data)
+	stackHash256 := Stack{data}
+	resultHash256, err := opHash256(&stackHash256)
+	if !resultHash256 || err != nil || len(stackHash256) != 1 || !bytes.Equal(stackHash256[len(stackHash256)-1], hash256) {
+		t.Errorf("opHash256 failed for stack with at least 1 element. Unexpected state after the operation")
+	}
+}
+
+func TestOpChecksig(t *testing.T) {
+	z, _ := new(big.Int).SetString("0x7c076ff316692a3d7eb3c3bb0f8b1488cf72e1afcd929e29307032997a838a3d", 0)
+	// Test case 1: Test when the stack is empty
+
+	emptyStack := Stack{}
+	resultEmptyStack, err := opChecksig(&emptyStack, z)
+	if resultEmptyStack || err == nil {
+		t.Errorf("opChecksig failed for empty stack. Expected false, nil; got true, %v", err)
+	}
+
+	// Test case 2: proper Signature
+	sec, _ := new(big.Int).SetString("0x04887387e452b8eacc4acfde10d9aaf7f6d9a0f975aabb10d006e4da568744d06c61de6d95231cd89026e286df3b6ae4a894a3378e393e93a0f45b666329a0ae34", 0)
+	sig, _ := new(big.Int).SetString("0x3045022000eff69ef2b1bd93a66ed5219add4fb51e11a840f404876325a1e8ffe0529a2c022100c7207fee197d27c618aea621406f6bf5ef6fca38681d82b2f06fddbdce6feab601", 0)
+	signedStack := Stack{sig.Bytes(), sec.Bytes()}
+
+	resultSignedStack, err := opChecksig(&signedStack, z)
+	if !resultSignedStack || err != nil || !bytes.Equal(signedStack[len(signedStack)-1], encodeNum(1)) {
+		t.Errorf("opChecksig failed for stack with correct Digital Signature. Unexpected state after the operation")
+	}
 }
 
 func performOperation(op func(*Stack) (bool, error), stack *Stack, expected int, t *testing.T) {

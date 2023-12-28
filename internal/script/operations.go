@@ -2,11 +2,11 @@ package script
 
 import (
 	"bytes"
-	"crypto/sha1"
-	"crypto/sha256"
 	"fmt"
+	"math/big"
 
-	"golang.org/x/crypto/ripemd160"
+	"github.com/caspereijkens/cryptocurrency/internal/signatureverification"
+	"github.com/caspereijkens/cryptocurrency/internal/utils"
 )
 
 type Stack [][]byte
@@ -864,9 +864,7 @@ func opRipemd160(stack *Stack) (bool, error) {
 		return false, err
 	}
 
-	hash := ripemd160.New()
-	hash.Write(element)
-	stack.push(hash.Sum(nil))
+	stack.push(utils.Ripemd160Hash(element))
 	return true, nil
 }
 
@@ -877,9 +875,7 @@ func opSha1(stack *Stack) (bool, error) {
 		return false, err
 	}
 
-	hash := sha1.New()
-	hash.Write(element)
-	stack.push(hash.Sum(nil))
+	stack.push(utils.Sha1Hash(element))
 	return true, nil
 }
 
@@ -890,9 +886,64 @@ func opSha256(stack *Stack) (bool, error) {
 		return false, err
 	}
 
-	hash := sha256.New()
-	hash.Write(element)
-	stack.push(hash.Sum(nil))
+	stack.push(utils.Sha256Hash(element))
+	return true, nil
+}
+
+func opHash160(stack *Stack) (bool, error) {
+	element, err := stack.pop(-1)
+
+	if err != nil {
+		return false, err
+	}
+
+	stack.push(utils.Hash160(element))
+	return true, nil
+}
+
+func opHash256(stack *Stack) (bool, error) {
+	element, err := stack.pop(-1)
+
+	if err != nil {
+		return false, err
+	}
+
+	stack.push(utils.Hash256(element))
+	return true, nil
+}
+
+func opChecksig(stack *Stack, z *big.Int) (bool, error) {
+	if len(*stack) < 2 {
+		return false, fmt.Errorf("not enough elements in stack: %d < 2", len(*stack))
+	}
+
+	secPubkey, err := stack.pop(-1)
+	if err != nil {
+		return false, err
+	}
+
+	derSignatureBytes, err := stack.pop(-1)
+	if err != nil {
+		return false, err
+	}
+
+	// take off the last byte of the signature as that's the hash type
+	derSignature, err := signatureverification.ParseDER(derSignatureBytes[:len(derSignatureBytes)-1])
+	if err != nil {
+		return false, err
+	}
+
+	point, err := signatureverification.ParseSEC(secPubkey)
+	if err != nil {
+		return false, err
+	}
+
+	if !point.Verify(z, derSignature) {
+		op0(stack)
+		return false, fmt.Errorf("signature validation failed")
+	}
+
+	op1(stack)
 	return true, nil
 }
 
