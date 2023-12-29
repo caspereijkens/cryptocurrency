@@ -167,7 +167,105 @@ func opNop(stack *Stack) (bool, error) {
 	return true, nil
 }
 
-// TODO opIf and opNotIf
+func opIf(stack, items *Stack) (bool, error) {
+	if len(*stack) < 1 {
+		return false, fmt.Errorf("stack is empty")
+	}
+
+	// go through and re-make the items array based on the top stack element
+	trueItems, falseItems := new(Stack), new(Stack)
+	var found bool
+	currentArray := trueItems
+	numEndifsNeeded := 1
+
+	for len(*items) > 0 {
+		item, err := items.pop(0)
+		if err != nil {
+			return false, err
+		}
+
+		if bytes.Equal(item, encodeNum(99)) || bytes.Equal(item, encodeNum(100)) {
+			// nested if, we have to go another endif
+			numEndifsNeeded++
+			*currentArray = append(*currentArray, item)
+		} else if numEndifsNeeded == 1 && bytes.Equal(item, encodeNum(103)) {
+			currentArray = falseItems
+		} else if bytes.Equal(item, encodeNum(104)) {
+			if numEndifsNeeded == 1 {
+				found = true
+				break
+			} else {
+				numEndifsNeeded--
+				*currentArray = append(*currentArray, item)
+			}
+		} else {
+			*currentArray = append(*currentArray, item)
+		}
+	}
+
+	if !found {
+		return false, nil
+	}
+
+	element, _ := stack.pop(-1)
+	if bytes.Equal(element, encodeNum(0)) {
+		*items = append(*falseItems, *items...)
+	} else {
+		*items = append(*trueItems, *items...)
+	}
+
+	return true, nil
+}
+
+func opNotIf(stack, items *Stack) (bool, error) {
+	if len(*stack) < 1 {
+		return false, fmt.Errorf("stack is empty")
+	}
+
+	// go through and re-make the items array based on the top stack element
+	trueItems, falseItems := new(Stack), new(Stack)
+	var found bool
+	currentArray := trueItems
+	numEndifsNeeded := 1
+
+	for len(*items) > 0 {
+		item, err := items.pop(0)
+		if err != nil {
+			return false, err
+		}
+
+		if bytes.Equal(item, encodeNum(99)) || bytes.Equal(item, encodeNum(100)) {
+			// nested if, we have to go another endif
+			numEndifsNeeded++
+			*currentArray = append(*currentArray, item)
+		} else if numEndifsNeeded == 1 && bytes.Equal(item, encodeNum(103)) {
+			currentArray = falseItems
+		} else if bytes.Equal(item, encodeNum(104)) {
+			if numEndifsNeeded == 1 {
+				found = true
+				break
+			} else {
+				numEndifsNeeded--
+				*currentArray = append(*currentArray, item)
+			}
+		} else {
+			*currentArray = append(*currentArray, item)
+		}
+	}
+
+	if !found {
+		return false, nil
+	}
+
+	element, _ := stack.pop(-1)
+	if bytes.Equal(element, encodeNum(0)) {
+		*items = append(*trueItems, *items...)
+	} else {
+		*items = append(*falseItems, *items...)
+	}
+
+	return true, nil
+}
 
 func opVerify(stack *Stack) (bool, error) {
 	element, err := stack.pop(-1)
@@ -912,7 +1010,7 @@ func opHash256(stack *Stack) (bool, error) {
 	return true, nil
 }
 
-func opChecksig(stack *Stack, z *big.Int) (bool, error) {
+func opCheckSig(stack *Stack, z *big.Int) (bool, error) {
 	if len(*stack) < 2 {
 		return false, fmt.Errorf("not enough elements in stack: %d < 2", len(*stack))
 	}
@@ -947,8 +1045,8 @@ func opChecksig(stack *Stack, z *big.Int) (bool, error) {
 	return true, nil
 }
 
-func opChecksigVerify(stack *Stack, z *big.Int) (bool, error) {
-	resultChecksig, err := opChecksig(stack, z)
+func opCheckSigVerify(stack *Stack, z *big.Int) (bool, error) {
+	resultChecksig, err := opCheckSig(stack, z)
 
 	if err != nil || !resultChecksig {
 		return false, err
@@ -1052,4 +1150,93 @@ func (stack *Stack) insert(index int, element []byte) error {
 	(*stack)[index] = element
 
 	return nil
+}
+
+// OpCodesFunctions is a map of opcode values to their corresponding functions
+var OpCodesFunctions = map[int]interface{}{
+	0:   op0,
+	79:  op1Negate,
+	81:  op1,
+	82:  op2,
+	83:  op3,
+	84:  op4,
+	85:  op5,
+	86:  op6,
+	87:  op7,
+	88:  op8,
+	89:  op9,
+	90:  op10,
+	91:  op11,
+	92:  op12,
+	93:  op13,
+	94:  op14,
+	95:  op15,
+	96:  op16,
+	97:  opNop,
+	99:  opIf,
+	100: opNotIf,
+	105: opVerify,
+	106: opReturn,
+	107: opToAltStack,
+	108: opFromAltStack,
+	109: op2Drop,
+	110: op2Dup,
+	111: op3Dup,
+	112: op2Over,
+	113: op2Rot,
+	114: op2Swap,
+	115: opIfDup,
+	116: opDepth,
+	117: opDrop,
+	118: opDup,
+	119: opNip,
+	120: opOver,
+	121: opPick,
+	122: opRoll,
+	123: opRot,
+	124: opSwap,
+	125: opTuck,
+	130: opSize,
+	135: opEqual,
+	136: opEqualVerify,
+	139: op1Add,
+	140: op1Sub,
+	143: opNegate,
+	144: opAbs,
+	145: opNot,
+	146: op0NotEqual,
+	147: opAdd,
+	148: opSub,
+	149: opMul,
+	154: opBoolAnd,
+	155: opBoolOr,
+	156: opNumEqual,
+	157: opNumEqualVerify,
+	158: opNumNotEqual,
+	159: opLessThan,
+	160: opGreaterThan,
+	161: opLessThanOrEqual,
+	162: opGreaterThanOrEqual,
+	163: opMin,
+	164: opMax,
+	165: opWithin,
+	166: opRipemd160,
+	167: opSha1,
+	168: opSha256,
+	169: opHash160,
+	170: opHash256,
+	172: opCheckSig,
+	173: opCheckSigVerify,
+	// 174: opCheckMultiSig,
+	// 175: opCheckMultiSigVerify,
+	176: opNop,
+	177: opCheckLockTimeVerify,
+	178: opCheckSequenceVerify,
+	179: opNop,
+	180: opNop,
+	181: opNop,
+	182: opNop,
+	183: opNop,
+	184: opNop,
+	185: opNop,
 }

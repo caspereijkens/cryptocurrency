@@ -98,6 +98,145 @@ func TestOpNop(t *testing.T) {
 	}
 }
 
+func TestOpIf(t *testing.T) {
+	// Test case 1: Regular if statement without else
+	stack1 := &Stack{encodeNum(1)}
+	items1 := &Stack{encodeNum(1), encodeNum(104)}
+
+	result1, err1 := opIf(stack1, items1)
+	assertOpIfResult(t, result1, err1, stack1, &Stack{}, items1, &Stack{encodeNum(1)}, true)
+
+	// Test case 2: Regular if statement (false condition)
+	stack2 := &Stack{encodeNum(0)}
+	items2 := &Stack{encodeNum(5), encodeNum(104)}
+
+	result2, err2 := opIf(stack2, items2)
+	assertOpIfResult(t, result2, err2, stack2, &Stack{}, items2, &Stack{}, true)
+
+	// Test case 3: Empty stack
+	stack3 := &Stack{}
+	items3 := &Stack{encodeNum(1), encodeNum(104)}
+
+	_, err3 := opIf(stack3, items3)
+	assertOpIfError(t, err3, "stack is empty")
+
+	// Test case 4: Nested if/else statement
+	stack4 := &Stack{encodeNum(1)}
+	items4 := &Stack{encodeNum(99), encodeNum(1), encodeNum(103), encodeNum(2), encodeNum(104), encodeNum(104)}
+
+	result4, err4 := opIf(stack4, items4)
+	assertOpIfResult(t, result4, err4, stack4, &Stack{}, items4, &Stack{encodeNum(99), encodeNum(1), encodeNum(103), encodeNum(2), encodeNum(104)}, true)
+
+	// Test case 5 if/else statement
+	stack5 := &Stack{encodeNum(0)}
+	items5 := &Stack{encodeNum(1), encodeNum(103), encodeNum(2), encodeNum(104)}
+
+	result5, err5 := opIf(stack5, items5)
+	assertOpIfResult(t, result5, err5, stack5, &Stack{}, items5, &Stack{encodeNum(2)}, true)
+}
+
+func TestOpNotIf(t *testing.T) {
+	// Test case 1: Regular if statement without else
+	stack1 := &Stack{encodeNum(0)}
+	items1 := &Stack{encodeNum(1), encodeNum(104)}
+
+	result1, err1 := opNotIf(stack1, items1)
+	assertOpNotIfResult(t, result1, err1, stack1, &Stack{}, items1, &Stack{encodeNum(1)}, true)
+
+	// Test case 2: Regular if statement (false condition)
+	stack2 := &Stack{encodeNum(1)}
+	items2 := &Stack{encodeNum(5), encodeNum(104)}
+
+	result2, err2 := opNotIf(stack2, items2)
+	assertOpNotIfResult(t, result2, err2, stack2, &Stack{}, items2, &Stack{}, true)
+
+	// Test case 3: Empty stack
+	stack3 := &Stack{}
+	items3 := &Stack{encodeNum(1), encodeNum(104)}
+
+	_, err3 := opNotIf(stack3, items3)
+	assertOpNotIfError(t, err3, "stack is empty")
+
+	// Test case 4: Nested if/else statement
+	stack4 := &Stack{encodeNum(0)}
+	items4 := &Stack{encodeNum(99), encodeNum(1), encodeNum(103), encodeNum(2), encodeNum(104), encodeNum(104)}
+
+	result4, err4 := opNotIf(stack4, items4)
+	assertOpNotIfResult(t, result4, err4, stack4, &Stack{}, items4, &Stack{encodeNum(99), encodeNum(1), encodeNum(103), encodeNum(2), encodeNum(104)}, true)
+
+	// Test case 5 if/else statement
+	stack5 := &Stack{encodeNum(1)}
+	items5 := &Stack{encodeNum(1), encodeNum(103), encodeNum(2), encodeNum(104)}
+
+	result5, err5 := opNotIf(stack5, items5)
+	assertOpNotIfResult(t, result5, err5, stack5, &Stack{}, items5, &Stack{encodeNum(2)}, true)
+
+}
+
+func assertOpIfResult(t *testing.T, result bool, err error, stack, expectedStack, items, expectedItems *Stack, success bool) {
+	t.Helper()
+
+	if success {
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+
+		if !equalStacks(stack, expectedStack) || !equalStacks(items, expectedItems) || !result {
+			t.Errorf("opIf test failed")
+		}
+	} else {
+		if err == nil {
+			t.Errorf("Expected error, but got nil")
+		}
+	}
+}
+
+func assertOpNotIfResult(t *testing.T, result bool, err error, stack, expectedStack, items, expectedItems *Stack, success bool) {
+	t.Helper()
+
+	if success {
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+
+		if !equalStacks(stack, expectedStack) || !equalStacks(items, expectedItems) || !result {
+			t.Errorf("opNotIf test failed")
+		}
+	} else {
+		if err == nil {
+			t.Errorf("Expected error, but got nil")
+		}
+	}
+}
+
+func assertOpIfError(t *testing.T, err error, expectedError string) {
+	t.Helper()
+
+	if err == nil || err.Error() != expectedError {
+		t.Errorf("Expected error: %v, got: %v", expectedError, err)
+	}
+}
+
+func assertOpNotIfError(t *testing.T, err error, expectedError string) {
+	t.Helper()
+
+	if err == nil || err.Error() != expectedError {
+		t.Errorf("Expected error: %v, got: %v", expectedError, err)
+	}
+}
+
+func equalStacks(s1, s2 *Stack) bool {
+	if len(*s1) != len(*s2) {
+		return false
+	}
+	for i := range *s1 {
+		if !bytes.Equal((*s1)[i], (*s2)[i]) {
+			return false
+		}
+	}
+	return true
+}
+
 func TestOpVerify(t *testing.T) {
 	// Test when the stack is empty
 	emptyStack := Stack{}
@@ -1072,7 +1211,7 @@ func TestOpChecksig(t *testing.T) {
 	// Test case 1: Test when the stack is empty
 
 	emptyStack := Stack{}
-	resultEmptyStack, err := opChecksig(&emptyStack, z)
+	resultEmptyStack, err := opCheckSig(&emptyStack, z)
 	if resultEmptyStack || err == nil {
 		t.Errorf("opChecksig failed for empty stack. Expected false, nil; got true, %v", err)
 	}
@@ -1082,7 +1221,7 @@ func TestOpChecksig(t *testing.T) {
 	sig, _ := new(big.Int).SetString("0x3045022000eff69ef2b1bd93a66ed5219add4fb51e11a840f404876325a1e8ffe0529a2c022100c7207fee197d27c618aea621406f6bf5ef6fca38681d82b2f06fddbdce6feab601", 0)
 	signedStack := Stack{sig.Bytes(), sec.Bytes()}
 
-	resultSignedStack, err := opChecksig(&signedStack, z)
+	resultSignedStack, err := opCheckSig(&signedStack, z)
 	if !resultSignedStack || err != nil || !bytes.Equal(signedStack[len(signedStack)-1], encodeNum(1)) {
 		t.Errorf("opChecksig failed for stack with correct Digital Signature. Unexpected state after the operation")
 	}
@@ -1093,7 +1232,7 @@ func TestOpChecksigVerify(t *testing.T) {
 	// Test case 1: Test when the stack is empty
 
 	emptyStack := Stack{}
-	resultEmptyStack, err := opChecksigVerify(&emptyStack, z)
+	resultEmptyStack, err := opCheckSigVerify(&emptyStack, z)
 	if resultEmptyStack || err == nil {
 		t.Errorf("opChecksigVerify failed for empty stack. Expected false, nil; got true, %v", err)
 	}
@@ -1103,7 +1242,7 @@ func TestOpChecksigVerify(t *testing.T) {
 	sig, _ := new(big.Int).SetString("0x3045022000eff69ef2b1bd93a66ed5219add4fb51e11a840f404876325a1e8ffe0529a2c022100c7207fee197d27c618aea621406f6bf5ef6fca38681d82b2f06fddbdce6feab601", 0)
 	signedStack := Stack{sig.Bytes(), sec.Bytes()}
 
-	resultSignedStack, err := opChecksigVerify(&signedStack, z)
+	resultSignedStack, err := opCheckSigVerify(&signedStack, z)
 	if !resultSignedStack || err != nil {
 		t.Errorf("opChecksigVerify failed for stack with correct Digital Signature. Unexpected state after the operation")
 	}
