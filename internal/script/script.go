@@ -4,13 +4,14 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"strconv"
+	"math/big"
+	"reflect"
 )
 
 type Script [][]byte
 
 // NewScript creates a new Script from a byte slice.
-// OP_PUSHDATA1/2 can be used to group data in a single []byte.
+// OP_PUSHDATA1/2 can be used to group data in a s[]byte.
 func NewScript(data []byte) (Script, error) {
 	if len(data) == 0 {
 		return nil, fmt.Errorf("empty script data")
@@ -60,6 +61,10 @@ func NewScript(data []byte) (Script, error) {
 	return script, nil
 }
 
+func (s Script) Add(otherScript Script) Script {
+	return append(s, otherScript...)
+}
+
 func (s *Script) Parse(data []byte) error {
 	script, err := NewScript(data)
 	if err != nil {
@@ -75,16 +80,20 @@ func (s Script) rawSerialize() ([]byte, error) {
 	for _, cmd := range s {
 		length := len(cmd)
 		switch {
-		case isInteger(cmd):
+		case len(cmd) == 1:
+			// if the command is an integer, we know it's an op code
 			result = append(result, cmd...)
 		case length < 75:
+			// if the length is between 1 and 75, we encode the length as a single byte
 			result = append(result, byte(length))
 			result = append(result, cmd...)
 		case length > 75 && length < 0x100:
+			// For any element with length 76 to 255, we put OP_PUSHDATA1 first, then encode the length as a single byte, followed by the element.
 			result = append(result, 76)
 			result = append(result, byte(length))
 			result = append(result, cmd...)
 		case length >= 0x100 && length <= 520:
+			// For any element with length 256 to 520, we put OP_PUSHDATA2 first, then encode the length as two bytes, followed by the element.
 			result = append(result, 77)
 			binary.LittleEndian.PutUint16(result[len(result):], uint16(length))
 			result = append(result, cmd...)
@@ -93,17 +102,6 @@ func (s Script) rawSerialize() ([]byte, error) {
 		}
 	}
 	return result, nil
-}
-
-func isInteger(data []byte) bool {
-	// Convert []byte to string
-	strData := string(data)
-
-	// Parse the string as an integer with base 10 and bit size 64
-	_, err := strconv.ParseInt(strData, 10, 8)
-
-	// If there is no error, it is a valid integer
-	return err == nil
 }
 
 // serialize serializes the Script and adds the total length prefix.
@@ -121,4 +119,86 @@ func (s Script) Serialize() ([]byte, error) {
 	result := append(varint[:length], rawResult...)
 
 	return result, nil
+}
+
+func (s Script) Evaluate(z *big.Int) bool {
+	cmds := make(Script, len(s))
+	copy(cmds, s)
+
+	var stack Stack
+	var altStack Stack
+
+	for len(cmds) > 0 {
+		cmd := cmds[0]
+		cmds = cmds[1:]
+
+		if len(cmd) == 1 {
+			opCode := int(cmd[0])
+
+			operation := OpCodesFunctions[opCode]
+
+			switch opCode {
+			case 99, 100:
+				ok, err := callOperation(operation, &stack, cmds)
+				if !ok || err != nil {
+					fmt.Printf("bad op: '%d', error: %v\n", opCode, err)
+					return false
+				}
+			case 107, 108:
+				ok, err := callOperation(operation, &stack, &altStack)
+				if !ok || err != nil {
+					fmt.Printf("bad op: '%d', error: %v\n", opCode, err)
+					return false
+				}
+			case 172, 173, 174, 175:
+				ok, err := callOperation(operation, &stack, z)
+				if !ok || err != nil {
+					fmt.Printf("bad op: '%d', error: %v\n", opCode, err)
+					return false
+				}
+			default:
+				ok, err := callOperation(operation, &stack)
+				if !ok || err != nil {
+					fmt.Printf("bad op: '%d', error: %v\n", opCode, err)
+					return false
+				}
+			}
+		} else {
+			stack.push(cmd)
+		}
+	}
+
+	if len(stack) == 0 || string((stack)[len(stack)-1]) == "" {
+		return false
+	}
+
+	return true
+}
+
+func callOperation(fn interface{}, args ...interface{}) (bool, error) {
+	v := reflect.ValueOf(fn)
+	if v.Kind() != reflect.Func {
+		return false, fmt.Errorf("not a function")
+	}
+
+	// Prepare the arguments
+	var input []reflect.Value
+	for _, arg := range args {
+		input = append(input, reflect.ValueOf(arg))
+	}
+
+	// Call the function
+	result := v.Call(input)
+
+	// Extract the return values
+	if len(result) != 2 {
+		// Assuming the first return value is bool and the second is error
+		return false, fmt.Errorf("function did not return expected values")
+	}
+
+	if result[1].Interface() != nil {
+		return result[0].Bool(), result[1].Interface().(error)
+	}
+
+	return result[0].Bool(), nil
 }
