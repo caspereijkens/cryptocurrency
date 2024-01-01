@@ -61,8 +61,8 @@ func NewScript(data []byte) (Script, error) {
 	return script, nil
 }
 
-func (s Script) Add(otherScript Script) Script {
-	return append(s, otherScript...)
+func (s *Script) Add(otherScript Script) Script {
+	return append(*s, otherScript...)
 }
 
 func (s *Script) Parse(data []byte) error {
@@ -74,10 +74,10 @@ func (s *Script) Parse(data []byte) error {
 	return nil
 }
 
-func (s Script) rawSerialize() ([]byte, error) {
+func (s *Script) rawSerialize() ([]byte, error) {
 	var result []byte
 
-	for _, cmd := range s {
+	for _, cmd := range *s {
 		length := len(cmd)
 		switch {
 		case len(cmd) == 1:
@@ -105,7 +105,7 @@ func (s Script) rawSerialize() ([]byte, error) {
 }
 
 // serialize serializes the Script and adds the total length prefix.
-func (s Script) Serialize() ([]byte, error) {
+func (s *Script) Serialize() ([]byte, error) {
 	rawResult, err := s.rawSerialize()
 	if err != nil {
 		return nil, err
@@ -121,9 +121,9 @@ func (s Script) Serialize() ([]byte, error) {
 	return result, nil
 }
 
-func (s Script) Evaluate(z *big.Int) bool {
-	cmds := make(Script, len(s))
-	copy(cmds, s)
+func (s *Script) Evaluate(z *big.Int) bool {
+	cmds := make(Script, len(*s))
+	copy(cmds, *s)
 
 	var stack Stack
 	var altStack Stack
