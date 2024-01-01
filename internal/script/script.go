@@ -2,7 +2,6 @@ package script
 
 import (
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"math/big"
 	"reflect"
@@ -98,7 +97,7 @@ func (s *Script) rawSerialize() ([]byte, error) {
 			binary.LittleEndian.PutUint16(result[len(result):], uint16(length))
 			result = append(result, cmd...)
 		default:
-			return nil, errors.New("too long a cmd")
+			return nil, fmt.Errorf("too long a cmd")
 		}
 	}
 	return result, nil
