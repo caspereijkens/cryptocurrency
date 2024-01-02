@@ -1152,8 +1152,8 @@ func (stack *Stack) insert(index int, element []byte) error {
 	return nil
 }
 
-// OpCodesFunctions is a map of opcode values to their corresponding functions
-var OpCodesFunctions = map[int]interface{}{
+// OpCodeFunctions is a map of opcode values to their corresponding functions
+var OpCodeFunctions = map[int]interface{}{
 	0:   op0,
 	79:  op1Negate,
 	81:  op1,
@@ -1241,7 +1241,7 @@ var OpCodesFunctions = map[int]interface{}{
 	185: opNop,
 }
 
-var OP_CODE_NAMES = map[int]string{
+var opCodeNames = map[int]string{
 	0:   "OP_0",
 	76:  "OP_PUSHDATA1",
 	77:  "OP_PUSHDATA2",

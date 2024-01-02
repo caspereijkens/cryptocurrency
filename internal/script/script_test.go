@@ -3,7 +3,10 @@ package script
 import (
 	"bytes"
 	"encoding/hex"
+	"fmt"
+	"io"
 	"math/big"
+	"os"
 	"reflect"
 	"testing"
 )
@@ -108,7 +111,7 @@ func TestSerialize(t *testing.T) {
 
 // Now a bunch of tests where I try the standard scripts from the book.
 
-func TestP2PKExample(t *testing.T) {
+func TestPayToPubKeyExample(t *testing.T) {
 	z, _ := new(big.Int).SetString("0x7c076ff316692a3d7eb3c3bb0f8b1488cf72e1afcd929e29307032997a838a3d", 0)
 	sec, _ := hex.DecodeString("04887387e452b8eacc4acfde10d9aaf7f6d9a0f975aabb10d006e4da568744d06c61de6d95231cd89026e286df3b6ae4a894a3378e393e93a0f45b666329a0ae34")
 	sig, _ := hex.DecodeString("3045022000eff69ef2b1bd93a66ed5219add4fb51e11a840f404876325a1e8ffe0529a2c022100c7207fee197d27c618aea621406f6bf5ef6fca38681d82b2f06fddbdce6feab601")
@@ -124,7 +127,73 @@ func TestP2PKExample(t *testing.T) {
 	falseSigScript := Script{falseSig}
 	combinedScript = falseSigScript.Add(pubkeyScript)
 	if ok := combinedScript.Evaluate(z); ok {
+		t.Errorf("Combined script should have failed. Evalutation resulted in True")
+	}
+
+}
+
+func TestSomeArbitraryPrograms(t *testing.T) {
+	// 4 + 5 = 9
+	pubkeyScript1 := Script{[]byte{0x55}, []byte{0x93}, []byte{0x59}, []byte{0x87}}
+	sigScript1 := Script{[]byte{0x54}}
+	combinedScript1 := sigScript1.Add(pubkeyScript1)
+	if ok := combinedScript1.Evaluate(nil); !ok {
 		t.Errorf("Combined script does not match. Evalutation resulted in False")
 	}
 
+	// 2 + 2^2 = 6
+	pubkeyScript2 := Script{[]byte{0x76}, []byte{0x76}, []byte{0x95}, []byte{0x93}, []byte{0x56}, []byte{0x87}}
+	sigScript2 := Script{[]byte{0x52}}
+	combinedScript2 := sigScript2.Add(pubkeyScript2)
+	if ok := combinedScript2.Evaluate(nil); !ok {
+		t.Errorf("Combined script does not match. Evalutation resulted in False")
+	}
+}
+
+// This test proves a SHA-1 hash collision found in February 2017 https://security.googleblog.com/2017/02/announcing-first-sha1-collision.html
+func TestSha1HashPinata(t *testing.T) {
+	filePath1 := "resources/shattered-1.pdf"
+
+	// Open the file1
+	file1, err := os.Open(filePath1)
+	if err != nil {
+		fmt.Println("Error opening file:", err)
+		return
+	}
+	defer file1.Close()
+
+	// Read the first 320 bytes
+	buffer1 := make([]byte, 320)
+	_, err = io.ReadFull(file1, buffer1)
+	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+		fmt.Println("Error reading file:", err)
+		return
+	}
+
+	filePath2 := "resources/shattered-2.pdf"
+
+	// Open the file2
+	file2, err := os.Open(filePath2)
+	if err != nil {
+		fmt.Println("Error opening file:", err)
+		return
+	}
+	defer file2.Close()
+
+	// Read the first 320 bytes
+	buffer2 := make([]byte, 320)
+	_, err = io.ReadFull(file2, buffer2)
+	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+		fmt.Println("Error reading file:", err)
+		return
+	}
+
+	// Create a Script by feeding the two byte-slices to the hash Pinata
+	pubkeyScriptHashPinataBytes, _ := hex.DecodeString("086e879169a77ca787")
+	pubkeyScriptHashPinata, _ := NewScript(pubkeyScriptHashPinataBytes)
+	sigScriptHashPinata := Script{buffer1, buffer2}
+	combinedScriptHashPinata := sigScriptHashPinata.Add(pubkeyScriptHashPinata)
+	if ok := combinedScriptHashPinata.Evaluate(nil); !ok {
+		t.Errorf("Combined script does not match. Evalutation resulted in False")
+	}
 }

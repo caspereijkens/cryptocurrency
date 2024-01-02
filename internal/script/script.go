@@ -134,31 +134,32 @@ func (s *Script) Evaluate(z *big.Int) bool {
 		if len(cmd) == 1 {
 			opCode := int(cmd[0])
 
-			operation := OpCodesFunctions[opCode]
+			operation := OpCodeFunctions[opCode]
+			opName := opCodeNames[opCode]
 
 			switch opCode {
 			case 99, 100:
 				ok, err := callOperation(operation, &stack, cmds)
 				if !ok || err != nil {
-					fmt.Printf("bad op: '%d', error: %v\n", opCode, err)
+					fmt.Printf("bad op: '%s', error: %v\n", opName, err)
 					return false
 				}
 			case 107, 108:
 				ok, err := callOperation(operation, &stack, &altStack)
 				if !ok || err != nil {
-					fmt.Printf("bad op: '%d', error: %v\n", opCode, err)
+					fmt.Printf("bad op: '%s', error: %v\n", opName, err)
 					return false
 				}
 			case 172, 173, 174, 175:
 				ok, err := callOperation(operation, &stack, z)
 				if !ok || err != nil {
-					fmt.Printf("bad op: '%d', error: %v\n", opCode, err)
+					fmt.Printf("bad op: '%s', error: %v\n", opName, err)
 					return false
 				}
 			default:
 				ok, err := callOperation(operation, &stack)
 				if !ok || err != nil {
-					fmt.Printf("bad op: '%d', error: %v\n", opCode, err)
+					fmt.Printf("bad op: '%s', error: %v\n", opName, err)
 					return false
 				}
 			}
@@ -200,4 +201,12 @@ func callOperation(fn interface{}, args ...interface{}) (bool, error) {
 	}
 
 	return result[0].Bool(), nil
+}
+
+func (s *Script) TranslateToOps() []string {
+	ops := make([]string, len(*s))
+	for i, cmd := range *s {
+		ops[i] = opCodeNames[int(cmd[0])]
+	}
+	return ops
 }
