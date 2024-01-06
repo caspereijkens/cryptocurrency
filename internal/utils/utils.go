@@ -3,6 +3,7 @@ package utils
 import (
 	"bytes"
 	"crypto/hmac"
+	"crypto/sha1"
 	"crypto/sha256"
 	"math/big"
 
@@ -47,16 +48,8 @@ func EncodeBase58Checksum(data []byte) string {
 
 // TODO Make unit test
 func Hash256(data []byte) []byte {
-	// First SHA-256 hash
-	hasher1 := sha256.New()
-	hasher1.Write(data)
-	firstHashBytes := hasher1.Sum(nil)
-
-	// Second SHA-256 hash on the result of the first hash
-	hasher2 := sha256.New()
-	hasher2.Write(firstHashBytes)
-	secondHashBytes := hasher2.Sum(nil)
-	return secondHashBytes
+	sha256Digest := Sha256Hash(data)
+	return Sha256Hash(sha256Digest)
 }
 
 // HmacSHA256 computes the HMAC SHA-256 digest of the data using the given key
@@ -98,13 +91,25 @@ func lstripNullBytes(data []byte) []byte {
 
 // sha256 followed by ripemd160
 func Hash160(s []byte) []byte {
-	sha256hash := sha256.New()
-	sha256hash.Write(s)
-	sha256Digest := sha256hash.Sum(nil)
-
-	ripemd160hash := ripemd160.New()
-	ripemd160hash.Write(sha256Digest)
-	ripemd160Digest := ripemd160hash.Sum(nil)
-
+	sha256Digest := Sha256Hash(s)
+	ripemd160Digest := Ripemd160Hash(sha256Digest)
 	return ripemd160Digest
+}
+
+func Sha1Hash(s []byte) []byte {
+	sha1Hash := sha1.New()
+	sha1Hash.Write(s)
+	return sha1Hash.Sum(nil)
+}
+
+func Sha256Hash(s []byte) []byte {
+	sha256Hash := sha256.New()
+	sha256Hash.Write(s)
+	return sha256Hash.Sum(nil)
+}
+
+func Ripemd160Hash(s []byte) []byte {
+	ripemd160Hash := ripemd160.New()
+	ripemd160Hash.Write(s)
+	return ripemd160Hash.Sum(nil)
 }

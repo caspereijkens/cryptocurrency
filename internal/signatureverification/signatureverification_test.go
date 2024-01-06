@@ -2,6 +2,7 @@ package signatureverification
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -104,6 +105,42 @@ func TestSignatureSerialize(t *testing.T) {
 	if derHexString != expectedHexString {
 		t.Errorf("failed to create DER format:\nGot:\n%s\nExpected:\n%s", derHexString, expectedHexString)
 	}
+}
+
+func TestSignatureDerParsing(t *testing.T) {
+	testCases := []struct {
+		r *big.Int
+		s *big.Int
+	}{
+		{randInt(256), randInt(255)},
+		{randInt(256), randInt(255)},
+	}
+
+	for _, tc := range testCases {
+		sig := NewSignature(tc.r, tc.s)
+		der := sig.Serialize()
+		parsedSig, err := ParseDER(der)
+		if err != nil {
+			t.Errorf("Error parsing signature DER: %v", err)
+		}
+
+		if parsedSig.R.Cmp(tc.r) != 0 {
+			t.Errorf("Expected r\n%s, got\n%s", tc.r.String(), parsedSig.R.String())
+		}
+
+		if parsedSig.S.Cmp(tc.s) != 0 {
+			t.Errorf("Expected s\n%s, got\n%s", tc.s.String(), parsedSig.S.String())
+		}
+	}
+}
+
+// randInt generates a random big.Int with the given bit length.
+func randInt(bitLen int) *big.Int {
+	// Note: In a real-world scenario, you may want to use a more secure random number generator.
+	// This example uses a simple approach for illustration purposes.
+	randomBits := make([]byte, (bitLen+7)/8)
+	_, _ = rand.Read(randomBits)
+	return new(big.Int).SetBytes(randomBits)
 }
 
 func TestSignAndVerify(t *testing.T) {
