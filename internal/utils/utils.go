@@ -1,11 +1,15 @@
 package utils
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/hmac"
 	"crypto/sha1"
 	"crypto/sha256"
+	"encoding/binary"
+	"fmt"
 	"math/big"
+	"strconv"
 
 	"golang.org/x/crypto/ripemd160"
 )
@@ -112,4 +116,93 @@ func Ripemd160Hash(s []byte) []byte {
 	ripemd160Hash := ripemd160.New()
 	ripemd160Hash.Write(s)
 	return ripemd160Hash.Sum(nil)
+}
+
+func FormatWithUnderscore(n int) string {
+	str := strconv.Itoa(n)
+	result := ""
+	for i := 0; i < len(str); i++ {
+		if i > 0 && (len(str)-i)%3 == 0 {
+			result += "_"
+		}
+		result += string(str[i])
+	}
+	return result
+}
+
+func EncodeVarint(i uint64) ([]byte, error) {
+	if i < 0xfd {
+		return []byte{byte(i)}, nil
+	} else if i < 0x10000 {
+		result := make([]byte, 3)
+		result[0] = 0xfd
+		binary.LittleEndian.PutUint16(result[1:], uint16(i))
+		return result, nil
+	} else if i < 0x100000000 {
+		result := make([]byte, 5)
+		result[0] = 0xfe
+		binary.LittleEndian.PutUint32(result[1:], uint32(i))
+		return result, nil
+	} else if i < 0xffffffffffffffff {
+		result := make([]byte, 9)
+		result[0] = 0xff
+		binary.LittleEndian.PutUint64(result[1:], i)
+		return result, nil
+	} else {
+		return nil, fmt.Errorf("integer too large: %d", i)
+	}
+}
+
+func ReadVarint(reader *bufio.Reader) (uint64, error) {
+	buf := make([]byte, 1)
+	_, err := reader.Read(buf)
+	if err != nil {
+		return 0, err
+	}
+
+	i := uint64(buf[0])
+	switch i {
+	case 0xfd:
+		// 0xfd means the next two bytes are the number
+		return readLittleEndianUint16(reader)
+	case 0xfe:
+		// 0xfe means the next four bytes are the number
+		return readLittleEndianUint32(reader)
+	case 0xff:
+		// 0xff means the next eight bytes are the number
+		return readLittleEndianUint64(reader)
+	default:
+		// anything else is just the integer
+		return i, nil
+	}
+}
+
+// readLittleEndianUint16 reads a little-endian uint16 from the reader
+func readLittleEndianUint16(reader *bufio.Reader) (uint64, error) {
+	buf := make([]byte, 2)
+	_, err := reader.Read(buf)
+	if err != nil {
+		return 0, err
+	}
+	return uint64(binary.LittleEndian.Uint16(buf)), nil
+}
+
+// readLittleEndianUint32 reads a little-endian uint32 from the reader
+func readLittleEndianUint32(reader *bufio.Reader) (uint64, error) {
+	buf := make([]byte, 4)
+	_, err := reader.Read(buf)
+	if err != nil {
+		return 0, err
+	}
+	return uint64(binary.LittleEndian.Uint32(buf)), nil
+}
+
+// readLittleEndianUint64 reads a little-endian uint64 from the reader
+func readLittleEndianUint64(reader *bufio.Reader) (uint64, error) {
+	buf := make([]byte, 8)
+	_, err := reader.Read(buf)
+	if err != nil {
+		return 0, err
+	}
+	return binary.LittleEndian.Uint64(buf), nil
 }

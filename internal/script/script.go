@@ -7,14 +7,16 @@ import (
 	"io"
 	"math/big"
 	"reflect"
+
+	"github.com/caspereijkens/cryptocurrency/internal/utils"
 )
 
 type Script [][]byte
 
-// NewScript creates a new Script from a byte slice.
-// OP_PUSHDATA1/2 can be used to group data in a s[]byte.
-func NewScript(reader *bufio.Reader) (Script, error) {
-	length, err := binary.ReadUvarint(reader)
+// ParseScript creates a new Script from a byte slice.
+// OP_PUSHDATA1/2 can be used to group data in a []byte.
+func ParseScript(reader *bufio.Reader) (Script, error) {
+	length, err := utils.ReadVarint(reader)
 
 	if err != nil {
 		return nil, fmt.Errorf("no uvarint could be read from reader: %v", err)
@@ -63,12 +65,30 @@ func NewScript(reader *bufio.Reader) (Script, error) {
 	return script, nil
 }
 
+func (s *Script) String() string {
+	var result []string
+	for _, cmd := range *s {
+		if len(cmd) == 1 {
+			opCode := int(cmd[0])
+			name, ok := opCodeNames[opCode]
+			if !ok {
+				result = append(result, fmt.Sprintf("OP_[%d]", opCode))
+				continue
+			}
+			result = append(result, name)
+			continue
+		}
+		result = append(result, fmt.Sprintf("%x", cmd))
+	}
+	return " " + fmt.Sprintf("%v", result)
+}
+
 func (s *Script) Add(otherScript Script) Script {
 	return append(*s, otherScript...)
 }
 
 func (s *Script) Parse(reader *bufio.Reader) error {
-	script, err := NewScript(reader)
+	script, err := ParseScript(reader)
 	if err != nil {
 		return err
 	}
@@ -114,11 +134,13 @@ func (s *Script) Serialize() ([]byte, error) {
 	}
 
 	// Get the varint bytes
-	varint := make([]byte, binary.MaxVarintLen64)
-	length := binary.PutUvarint(varint, uint64(len(rawResult)))
+	varint, err := utils.EncodeVarint(uint64(len(rawResult)))
+	if err != nil {
+		return nil, err
+	}
 
 	// Append the varint and the serialized script
-	result := append(varint[:length], rawResult...)
+	result := append(varint, rawResult...)
 
 	return result, nil
 }

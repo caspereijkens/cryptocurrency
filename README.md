@@ -3,3 +3,6 @@
 ```bash
 bin/make-testnet-address
 ```
+
+TODOs
+1. Implement ProtoBuf for serializing messages.

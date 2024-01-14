@@ -54,7 +54,7 @@ func TestNewScript(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			script, err := NewScript(bufio.NewReader(bytes.NewBuffer(tt.input)))
+			script, err := ParseScript(bufio.NewReader(bytes.NewBuffer(tt.input)))
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewScript() error = %v, wantErr %v", err, tt.wantErr)
@@ -73,7 +73,7 @@ func TestScriptParsing(t *testing.T) {
 	scriptPubKeyBytes, _ := hex.DecodeString(scriptPubKeyHex)
 	scriptPubKey := bufio.NewReader(bytes.NewBuffer(scriptPubKeyBytes))
 
-	script, err := NewScript(scriptPubKey)
+	script, err := ParseScript(scriptPubKey)
 	if err != nil {
 		t.Fatalf("NewScript() error: %v", err)
 	}
@@ -92,7 +92,7 @@ func TestScriptParsing(t *testing.T) {
 	scriptPubKeyBytes, _ = hex.DecodeString(scriptPubKeyHex)
 	scriptPubKey = bufio.NewReader(bytes.NewBuffer(scriptPubKeyBytes))
 
-	script, err = NewScript(scriptPubKey)
+	script, err = ParseScript(scriptPubKey)
 	if err != nil {
 		t.Fatalf("NewScript() error: %v", err)
 	}
@@ -212,7 +212,7 @@ func TestSha1HashPinata(t *testing.T) {
 	// Create a Script by feeding the two byte-slices to the hash Pinata
 	pubkeyScriptHashPinataBytes, _ := hex.DecodeString("086e879169a77ca787")
 	pubkeyScriptHashPinataBuf := bufio.NewReader(bytes.NewBuffer(pubkeyScriptHashPinataBytes))
-	pubkeyScriptHashPinata, _ := NewScript(pubkeyScriptHashPinataBuf)
+	pubkeyScriptHashPinata, _ := ParseScript(pubkeyScriptHashPinataBuf)
 	sigScriptHashPinata := Script{buffer1, buffer2}
 	combinedScriptHashPinata := sigScriptHashPinata.Add(pubkeyScriptHashPinata)
 	if ok := combinedScriptHashPinata.Evaluate(nil); !ok {
