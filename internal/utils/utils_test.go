@@ -1,8 +1,10 @@
 package utils
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"reflect"
 	"testing"
@@ -148,4 +150,217 @@ func TestHash160(t *testing.T) {
 			t.Errorf("For input '%s', expected %s but got %s", test.input, test.expected, resultHex)
 		}
 	}
+}
+
+func TestFormatWithUnderscore(t *testing.T) {
+	tests := []struct {
+		input    int
+		expected string
+	}{
+		{1234567890, "1_234_567_890"},
+		{9876543210, "9_876_543_210"},
+		{123, "123"},
+		{1000000, "1_000_000"},
+		{0, "0"},
+	}
+
+	for _, test := range tests {
+		result := FormatWithUnderscore(test.input)
+		if result != test.expected {
+			t.Errorf("For input %d, expected %s, but got %s", test.input, test.expected, result)
+		}
+	}
+}
+
+func TestEncodeVarint(t *testing.T) {
+	tests := []struct {
+		input         uint64
+		expectedBytes string
+		expectedError bool
+	}{
+		{0x12, "12", false},
+		{0x1234, "fd3412", false},
+		{0x12345678, "fe78563412", false},
+		{0x123456789abcdef0, "fff0debc9a78563412", false},
+		{0xffffffffffffffff, "", true},
+	}
+
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("EncodeVarint(%x)", test.input), func(t *testing.T) {
+			result, err := EncodeVarint(test.input)
+
+			if test.expectedError {
+				if err == nil {
+					t.Error("Expected an error, but got none")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Unexpected error: %v", err)
+				}
+
+				expectedBytes, _ := hex.DecodeString(test.expectedBytes)
+				if !compareSlices(result, expectedBytes) {
+					t.Errorf("Expected: %x, got: %x", expectedBytes, result)
+				}
+			}
+		})
+	}
+}
+
+func TestReadVarint(t *testing.T) {
+	tests := []struct {
+		input          []byte
+		expectedValue  uint64
+		expectedError  bool
+		expectedErrMsg string
+	}{
+		{[]byte{0x12}, 0x12, false, ""},
+		{[]byte{0xfd, 0x34, 0x12}, 0x1234, false, ""},
+		{[]byte{0xfe, 0x78, 0x56, 0x34, 0x12}, 0x12345678, false, ""},
+		{[]byte{0xff, 0xf0, 0xde, 0xbc, 0x9a, 0x78, 0x56, 0x34, 0x12}, 0x123456789abcdef0, false, ""},
+		{[]byte{}, 0, true, "EOF"},
+	}
+
+	for _, test := range tests {
+		t.Run(hex.EncodeToString(test.input), func(t *testing.T) {
+			reader := bufio.NewReader(bytes.NewReader(test.input))
+			value, err := ReadVarint(reader)
+
+			if test.expectedError {
+				if err == nil {
+					t.Error("Expected an error, but got none")
+				} else if err.Error() != test.expectedErrMsg {
+					t.Errorf("Expected error message: %s, got: %s", test.expectedErrMsg, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Unexpected error: %v", err)
+				}
+
+				if value != test.expectedValue {
+					t.Errorf("Expected value: %x, got: %x", test.expectedValue, value)
+				}
+			}
+		})
+	}
+}
+
+func TestReadLittleEndianUint16(t *testing.T) {
+	tests := []struct {
+		input          []byte
+		expectedValue  uint64
+		expectedError  bool
+		expectedErrMsg string
+	}{
+		{[]byte{0x34, 0x12}, 0x1234, false, ""},
+		{[]byte{0xff, 0xff}, 0xffff, false, ""},
+		{[]byte{}, 0, true, "EOF"},
+	}
+
+	for _, test := range tests {
+		t.Run(hex.EncodeToString(test.input), func(t *testing.T) {
+			reader := bufio.NewReader(bytes.NewReader(test.input))
+			value, err := readLittleEndianUint16(reader)
+
+			if test.expectedError {
+				if err == nil {
+					t.Error("Expected an error, but got none")
+				} else if err.Error() != test.expectedErrMsg {
+					t.Errorf("Expected error message: %s, got: %s", test.expectedErrMsg, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Unexpected error: %v", err)
+				}
+
+				if value != test.expectedValue {
+					t.Errorf("Expected value: %x, got: %x", test.expectedValue, value)
+				}
+			}
+		})
+	}
+}
+
+func TestReadLittleEndianUint32(t *testing.T) {
+	tests := []struct {
+		input          []byte
+		expectedValue  uint64
+		expectedError  bool
+		expectedErrMsg string
+	}{
+		{[]byte{0x78, 0x56, 0x34, 0x12}, 0x12345678, false, ""},
+		{[]byte{0xff, 0xff, 0xff}, 0xffffff, false, ""},
+		{[]byte{}, 0, true, "EOF"},
+	}
+
+	for _, test := range tests {
+		t.Run(hex.EncodeToString(test.input), func(t *testing.T) {
+			reader := bufio.NewReader(bytes.NewReader(test.input))
+			value, err := readLittleEndianUint32(reader)
+
+			if test.expectedError {
+				if err == nil {
+					t.Error("Expected an error, but got none")
+				} else if err.Error() != test.expectedErrMsg {
+					t.Errorf("Expected error message: %s, got: %s", test.expectedErrMsg, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Unexpected error: %v", err)
+				}
+
+				if value != test.expectedValue {
+					t.Errorf("Expected value: %x, got: %x", test.expectedValue, value)
+				}
+			}
+		})
+	}
+}
+
+func TestReadLittleEndianUint64(t *testing.T) {
+	tests := []struct {
+		input          []byte
+		expectedValue  uint64
+		expectedError  bool
+		expectedErrMsg string
+	}{
+		{[]byte{0xf0, 0xde, 0xbc, 0x9a, 0x78, 0x56, 0x34, 0x12}, 0x123456789abcdef0, false, ""},
+		{[]byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}, 0xffffffffffffffff, false, ""},
+		{[]byte{}, 0, true, "EOF"},
+	}
+
+	for _, test := range tests {
+		t.Run(hex.EncodeToString(test.input), func(t *testing.T) {
+			reader := bufio.NewReader(bytes.NewReader(test.input))
+			value, err := readLittleEndianUint64(reader)
+
+			if test.expectedError {
+				if err == nil {
+					t.Error("Expected an error, but got none")
+				} else if err.Error() != test.expectedErrMsg {
+					t.Errorf("Expected error message: %s, got: %s", test.expectedErrMsg, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Unexpected error: %v", err)
+				}
+
+				if value != test.expectedValue {
+					t.Errorf("Expected value: %x, got: %x", test.expectedValue, value)
+				}
+			}
+		})
+	}
+}
+
+func compareSlices(slice1, slice2 []byte) bool {
+	if len(slice1) != len(slice2) {
+		return false
+	}
+	for i := range slice1 {
+		if slice1[i] != slice2[i] {
+			return false
+		}
+	}
+	return true
 }
