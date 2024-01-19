@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/hex"
+	"math/big"
 	"testing"
 )
 
@@ -128,6 +129,26 @@ func TestTxFee(t *testing.T) {
 	expectedFee := uint64(534528)
 	if fee != expectedFee {
 		t.Errorf("Error calculating fee:\nwant: %d\nhave: %d", fee, expectedFee)
+	}
+}
+
+func TestSigHash(t *testing.T) {
+	testnet = false
+	id := "452c629d67e41baec3ac6f04fe744b4b9617f8f859c63b3002f8684e7a4fee03"
+	tx, err := NewTxFetcher().Fetch(id, testnet, fresh)
+	if err != nil {
+		t.Fatalf("Failed to fetch transaction: %v", err)
+	}
+
+	want, _ := new(big.Int).SetString("0x27e0c5994dec7824e56dec6b2fcb342eb7cdb0d0957c2fce9882f715e85d81a6", 0)
+
+	result, err := tx.SigHash(0)
+	if err != nil {
+		t.Fatalf("Error calling SigHash: %v", err)
+	}
+
+	if result.Cmp(want) != 0 {
+		t.Errorf("SigHash result mismatch, got: %s, want: %s", result.Text(16), want.Text(16))
 	}
 }
 

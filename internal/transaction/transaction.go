@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/big"
 	"net/http"
 	"os"
 	"slices"
@@ -15,6 +16,8 @@ import (
 	"github.com/caspereijkens/cryptocurrency/internal/script"
 	"github.com/caspereijkens/cryptocurrency/internal/utils"
 )
+
+const SigHashAll = uint32(1)
 
 type Tx struct {
 	Version  uint32
@@ -177,6 +180,83 @@ func (tx *Tx) Fee() (uint64, error) {
 	fee := inputSum - outputSum
 	return fee, nil
 }
+
+// Returns the integer representation of the hash that needs to get signed for index input_index
+func (tx *Tx) SigHash(inputIndex uint32) (*big.Int, error) {
+	result := make([]byte, 4)
+	binary.LittleEndian.PutUint32(result, tx.Version)
+
+	numInputs, err := utils.EncodeVarint(uint64(len(tx.TxIns)))
+	if err != nil {
+		return nil, err
+	}
+	result = append(result, numInputs...)
+
+	for i, txIn := range tx.TxIns {
+		if i != int(inputIndex) {
+			txIn.ScriptSig = script.Script{}
+			serializedTxIn, err := txIn.Serialize()
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, serializedTxIn...)
+			continue
+		}
+		prevTx, err := txIn.FetchTx(tx.Testnet)
+		if err != nil {
+			return nil, err
+		}
+		txIn.ScriptSig = prevTx.TxOuts[txIn.PrevIndex].ScriptPubkey
+
+		serializedTxIn, err := txIn.Serialize()
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, serializedTxIn...)
+	}
+
+	numOutputs, err := utils.EncodeVarint(uint64(len(tx.TxOuts)))
+	if err != nil {
+		return nil, err
+	}
+
+	result = append(result, numOutputs...)
+
+	for _, txOut := range tx.TxOuts {
+		serializedTxOut, err := txOut.Serialize()
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, serializedTxOut...)
+	}
+
+	locktimeBytes := make([]byte, 4)
+	binary.LittleEndian.PutUint32(locktimeBytes, tx.Locktime)
+	result = append(result, locktimeBytes...)
+
+	hashType := make([]byte, 4)
+	binary.LittleEndian.PutUint32(hashType, SigHashAll)
+	result = append(result, hashType...)
+
+	resultHash256 := utils.Hash256(result)
+
+	return new(big.Int).SetBytes(resultHash256), nil
+}
+
+// func (tx *Tx) VerifyInput(index uint32, testnet bool) bool {
+// 	// get the relevant input
+// 	txIn := tx.TxIns[index]
+// 	// grab the previous ScriptPubKey
+// 	prevTx, err := txIn.FetchTx(testnet)
+// 	if err != nil {
+// 		return false
+// 	}
+// 	// get the signature hash (z)
+// 	z :=
+// 	// combine the current ScriptSig and the previous ScriptPubKey
+
+// 	// evaluate the combined script
+// }
 
 // TxIn represents a transaction input
 type TxIn struct {
