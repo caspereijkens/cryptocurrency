@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"math/big"
 	"testing"
+
+	"github.com/caspereijkens/cryptocurrency/internal/script"
 )
 
 const (
@@ -132,7 +134,7 @@ func TestTxFee(t *testing.T) {
 	}
 }
 
-func TestSigHash(t *testing.T) {
+func TestTxSigHash(t *testing.T) {
 	testnet = false
 	id := "452c629d67e41baec3ac6f04fe744b4b9617f8f859c63b3002f8684e7a4fee03"
 	tx, err := NewTxFetcher().Fetch(id, testnet, fresh)
@@ -149,6 +151,40 @@ func TestSigHash(t *testing.T) {
 
 	if result.Cmp(want) != 0 {
 		t.Errorf("SigHash result mismatch, got: %s, want: %s", result.Text(16), want.Text(16))
+	}
+}
+
+func TestTxVerifyP2PKH(t *testing.T) {
+	testnet = false
+	// Test case 1
+	tx1, err := NewTxFetcher().Fetch("452c629d67e41baec3ac6f04fe744b4b9617f8f859c63b3002f8684e7a4fee03", testnet, fresh)
+	if err != nil {
+		t.Fatalf("Error fetching transaction: %v", err)
+	}
+	if !tx1.Verify() {
+		t.Errorf("Verification failed for transaction 1")
+	}
+
+	// Test case 2
+	testnet = true
+	tx2, err := NewTxFetcher().Fetch("5418099cc755cb9dd3ebc6cf1a7888ad53a1a3beb5a025bce89eb1bf7f1650a2", testnet, fresh)
+	if err != nil {
+		t.Fatalf("Error fetching transaction: %v", err)
+	}
+	if !tx2.Verify() {
+		t.Errorf("Verification failed for transaction 2")
+	}
+}
+
+func TestVerifyP2SH(t *testing.T) {
+	testnet = false
+	// Test case
+	tx, err := NewTxFetcher().Fetch("46df1a9484d0a81d03ce0ee543ab6e1a23ed06175c104a178268fad381216c2b", testnet, fresh)
+	if err != nil {
+		t.Fatalf("Error fetching transaction: %v", err)
+	}
+	if !tx.Verify() {
+		t.Errorf("Verification failed for transaction")
 	}
 }
 
@@ -169,5 +205,34 @@ func TestTxInValue(t *testing.T) {
 
 	if value != expectedValue {
 		t.Errorf("Value of input is wrong.\nExpected:%d\nGot:%d", expectedValue, value)
+	}
+}
+
+func TestTxInPubkey(t *testing.T) {
+	txHash := "d1c789a9c60383bf715f3f6ad9d14b91fe55f3deb369fe5d9280cb1a01793f81"
+	index := uint32(0)
+	wantHex := "1976a914a802fc56c704ce87c42d7c92eb75e7896bdc41ae88ac"
+
+	txInBytes, err := hex.DecodeString(txHash)
+	if err != nil {
+		t.Fatalf("Error fetching ScriptPubkey: %v", err)
+	}
+	txIn := NewTxIn(txInBytes, index, script.Script{}, uint32(0xffffffff))
+	scriptPubkey, err := txIn.ScriptPubkey(false)
+	if err != nil {
+		t.Fatalf("Error fetching ScriptPubkey: %v", err)
+	}
+
+	want, err := hex.DecodeString(wantHex)
+	if err != nil {
+		t.Fatalf("Error decoding expected ScriptPubkey: %v", err)
+	}
+
+	have, err := scriptPubkey.Serialize()
+	if err != nil {
+		t.Fatalf("Error decoding expected ScriptPubkey: %v", err)
+	}
+	if !bytes.Equal(have, want) {
+		t.Errorf("ScriptPubkey mismatch. Got %x, want %x", have, want)
 	}
 }

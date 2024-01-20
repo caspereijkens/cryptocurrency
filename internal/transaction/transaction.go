@@ -177,6 +177,10 @@ func (tx *Tx) Fee() (uint64, error) {
 		outputSum += txOut.Amount
 	}
 
+	if outputSum > inputSum {
+		return 0, fmt.Errorf("output is larger than input, which is not allowed")
+	}
+
 	fee := inputSum - outputSum
 	return fee, nil
 }
@@ -193,22 +197,23 @@ func (tx *Tx) SigHash(inputIndex uint32) (*big.Int, error) {
 	result = append(result, numInputs...)
 
 	for i, txIn := range tx.TxIns {
+		txInCopy := *txIn
 		if i != int(inputIndex) {
-			txIn.ScriptSig = script.Script{}
-			serializedTxIn, err := txIn.Serialize()
+			txInCopy.ScriptSig = script.Script{}
+			serializedTxIn, err := txInCopy.Serialize()
 			if err != nil {
 				return nil, err
 			}
 			result = append(result, serializedTxIn...)
 			continue
 		}
-		prevTx, err := txIn.FetchTx(tx.Testnet)
+		prevTx, err := txInCopy.FetchTx(tx.Testnet)
 		if err != nil {
 			return nil, err
 		}
-		txIn.ScriptSig = prevTx.TxOuts[txIn.PrevIndex].ScriptPubkey
+		txInCopy.ScriptSig = prevTx.TxOuts[txInCopy.PrevIndex].ScriptPubkey
 
-		serializedTxIn, err := txIn.Serialize()
+		serializedTxIn, err := txInCopy.Serialize()
 		if err != nil {
 			return nil, err
 		}
@@ -243,20 +248,41 @@ func (tx *Tx) SigHash(inputIndex uint32) (*big.Int, error) {
 	return new(big.Int).SetBytes(resultHash256), nil
 }
 
-// func (tx *Tx) VerifyInput(index uint32, testnet bool) bool {
-// 	// get the relevant input
-// 	txIn := tx.TxIns[index]
-// 	// grab the previous ScriptPubKey
-// 	prevTx, err := txIn.FetchTx(testnet)
-// 	if err != nil {
-// 		return false
-// 	}
-// 	// get the signature hash (z)
-// 	z :=
-// 	// combine the current ScriptSig and the previous ScriptPubKey
+// Returns whether the input has a valid signature
+func (tx *Tx) VerifyInput(index uint32) bool {
+	txIn := tx.TxIns[index]
+	scriptPubkey, err := txIn.ScriptPubkey(tx.Testnet)
+	if err != nil {
+		return false
+	}
 
-// 	// evaluate the combined script
-// }
+	z, err := tx.SigHash(index)
+	if err != nil {
+		return false
+	}
+
+	combinedScript := txIn.ScriptSig.Add(scriptPubkey)
+	fmt.Println(txIn.ScriptSig.String())
+	fmt.Println(scriptPubkey.String())
+	fmt.Println(combinedScript.String())
+
+	return combinedScript.Evaluate(z)
+}
+
+// Verify this transaction
+func (tx *Tx) Verify() bool {
+	_, err := tx.Fee()
+	if err != nil {
+		return false
+	}
+
+	for i := range tx.TxIns {
+		if !tx.VerifyInput(uint32(i)) {
+			return false
+		}
+	}
+	return true
+}
 
 // TxIn represents a transaction input
 type TxIn struct {
@@ -355,6 +381,15 @@ func (txIn *TxIn) Value(testnet bool) (uint64, error) {
 	}
 
 	return tx.TxOuts[txIn.PrevIndex].Amount, nil
+}
+
+func (txIn *TxIn) ScriptPubkey(testnet bool) (script.Script, error) {
+	tx, err := txIn.FetchTx(testnet)
+	if err != nil {
+		return nil, err
+	}
+	scriptPubkey := tx.TxOuts[txIn.PrevIndex].ScriptPubkey
+	return scriptPubkey, nil
 }
 
 // TransactionInput represents a transaction input

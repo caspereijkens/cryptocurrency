@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"math/big"
 	"strconv"
+	"strings"
 
 	"golang.org/x/crypto/ripemd160"
 )
@@ -45,9 +46,26 @@ func EncodeBase58Checksum(data []byte) string {
 
 	dataWithChecksum := append(data, hash256[:4]...)
 
-	base58Encoded := EncodeBase58(dataWithChecksum)
+	return EncodeBase58(dataWithChecksum)
+}
 
-	return base58Encoded
+func DecodeBase58(s string) ([]byte, error) {
+	num := new(big.Int)
+
+	for _, c := range s {
+		num.Mul(num, big.NewInt(58))
+		num.Add(num, big.NewInt(int64(strings.IndexByte(base58Alphabet, byte(c)))))
+	}
+
+	combined := make([]byte, 25)
+	copy(combined[25-len(num.Bytes()):], num.Bytes())
+
+	checksum := combined[21:]
+	if !bytes.Equal(Hash256(combined[:21])[:4], checksum) {
+		return nil, fmt.Errorf("bad address: %x %x", checksum, Hash256(combined[:21])[:4])
+	}
+
+	return combined[1:21], nil
 }
 
 // TODO Make unit test
