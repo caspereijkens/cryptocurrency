@@ -126,6 +126,27 @@ func TestEncodeBase58(t *testing.T) {
 	}
 }
 
+func TestDecodeBase58(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"mnrVtF8DWjMu839VW3rBfgYaAfKk8983Xf", "507b27411ccf7f16f10297de6cef3f291623eddf"},
+		{"mzx5YhAH9kNHtcN481u6WkjeHjYtVeKVh2", "d52ad7ca9b3d096a38e752c2018e6fbc40cdf26f"},
+	}
+
+	for _, test := range tests {
+		result, _ := DecodeBase58(test.input)
+		expected, _ := hex.DecodeString(test.expected)
+		if len(result) != len(expected) {
+			t.Errorf("Input: %s, Expected length: %d, Got length: %d", test.input, len(test.expected), len(result))
+		}
+		if !bytes.Equal(expected, result) {
+			t.Errorf("Input: %s,\nExpected: %x,\nGot: %d", test.input, test.expected, result)
+		}
+	}
+}
+
 func TestHash160(t *testing.T) {
 	tests := []struct {
 		input    string

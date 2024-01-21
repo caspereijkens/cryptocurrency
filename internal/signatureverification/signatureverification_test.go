@@ -144,11 +144,11 @@ func randInt(bitLen int) *big.Int {
 }
 
 func TestSignAndVerify(t *testing.T) {
-	privKey, err := NewPrivateKey(Hash256ToBigInt("my secret"))
+	privKey, err := NewPrivateKey(utils.Hash256ToBigInt("my secret"))
 	if err != nil {
 		t.Errorf("failed to create private key: %v", err)
 	}
-	z := Hash256ToBigInt("my message")
+	z := utils.Hash256ToBigInt("my message")
 	k := big.NewInt(1234567890)
 	sig, err := privKey.Sign(z)
 	if err != nil {
@@ -354,9 +354,9 @@ func TestParseSEC(t *testing.T) {
 // s1re - s2re = s2z1 - s1z2
 // e = (s2z1 - s1z2) / (s1r - s2r)
 // func TestImportanceOfUniqueK(t *testing.T) {
-// 	e := utils.Hash256ToBigInt("my secret")
-// 	z1 := utils.Hash256ToBigInt("my first message")
-// 	z2 := utils.Hash256ToBigInt("my second message")
+// 	e := utils.utils.Hash256ToBigInt("my secret")
+// 	z1 := utils.utils.Hash256ToBigInt("my first message")
+// 	z2 := utils.utils.Hash256ToBigInt("my second message")
 // 	k := big.NewInt(1234567890)
 // 	sig1, _ := Sign(e, z1)
 // 	sig2, _ := Sign(e, z2)
@@ -402,8 +402,8 @@ func TestGetDeterministicK(t *testing.T) {
 	}{
 		{
 			name:         "Test Case 1",
-			secret:       Hash256ToBigInt("my secret"),
-			z:            Hash256ToBigInt("Hi Mom!"),                                           // Example value for z
+			secret:       utils.Hash256ToBigInt("my secret"),
+			z:            utils.Hash256ToBigInt("Hi Mom!"),                                     // Example value for z
 			expectedKHex: "0x5a36ac7d11fc415802c6049fda6ced159feb2044ba9bc61ecb18c8366b64ac65", // Expected output (this should be pre-calculated for a known input)
 		},
 		// Add more test cases as necessary
@@ -495,14 +495,4 @@ func createEllipticCurvePoint(x, y *big.Int) (*S256Point, error) {
 		return nil, err
 	}
 	return NewS256Point(px, py)
-}
-
-func Hash256ToBigInt(data string) *big.Int {
-	// First SHA-256 hash
-	hash256 := utils.Hash256([]byte(data))
-
-	// Convert the second hash bytes to a big.Int
-	bigInt := new(big.Int)
-	bigInt.SetBytes(hash256)
-	return bigInt
 }

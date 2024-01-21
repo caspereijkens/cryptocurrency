@@ -8,13 +8,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/big"
 	"net/http"
 	"os"
 	"slices"
 
 	"github.com/caspereijkens/cryptocurrency/internal/script"
+	"github.com/caspereijkens/cryptocurrency/internal/signatureverification"
 	"github.com/caspereijkens/cryptocurrency/internal/utils"
 )
+
+const SigHashAll = uint32(1)
 
 type Tx struct {
 	Version  uint32
@@ -174,8 +178,132 @@ func (tx *Tx) Fee() (uint64, error) {
 		outputSum += txOut.Amount
 	}
 
+	if outputSum > inputSum {
+		return 0, fmt.Errorf("output is larger than input, which is not allowed")
+	}
+
 	fee := inputSum - outputSum
 	return fee, nil
+}
+
+// Returns the integer representation of the hash that needs to get signed for index input_index
+func (tx *Tx) SigHash(inputIndex uint32) (*big.Int, error) {
+	result := make([]byte, 4)
+	binary.LittleEndian.PutUint32(result, tx.Version)
+
+	numInputs, err := utils.EncodeVarint(uint64(len(tx.TxIns)))
+	if err != nil {
+		return nil, err
+	}
+	result = append(result, numInputs...)
+
+	for i, txIn := range tx.TxIns {
+		txInCopy := *txIn
+		if i != int(inputIndex) {
+			txInCopy.ScriptSig = script.Script{}
+			serializedTxIn, err := txInCopy.Serialize()
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, serializedTxIn...)
+			continue
+		}
+		prevTx, err := txInCopy.FetchTx(tx.Testnet)
+		if err != nil {
+			return nil, err
+		}
+		txInCopy.ScriptSig = prevTx.TxOuts[txInCopy.PrevIndex].ScriptPubkey
+
+		serializedTxIn, err := txInCopy.Serialize()
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, serializedTxIn...)
+	}
+
+	numOutputs, err := utils.EncodeVarint(uint64(len(tx.TxOuts)))
+	if err != nil {
+		return nil, err
+	}
+
+	result = append(result, numOutputs...)
+
+	for _, txOut := range tx.TxOuts {
+		serializedTxOut, err := txOut.Serialize()
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, serializedTxOut...)
+	}
+
+	locktimeBytes := make([]byte, 4)
+	binary.LittleEndian.PutUint32(locktimeBytes, tx.Locktime)
+	result = append(result, locktimeBytes...)
+
+	hashType := make([]byte, 4)
+	binary.LittleEndian.PutUint32(hashType, SigHashAll)
+	result = append(result, hashType...)
+
+	resultHash256 := utils.Hash256(result)
+
+	return new(big.Int).SetBytes(resultHash256), nil
+}
+
+// Returns whether the input has a valid signature
+func (tx *Tx) VerifyInput(index uint32) bool {
+	txIn := tx.TxIns[index]
+	scriptPubkey, err := txIn.ScriptPubkey(tx.Testnet)
+	if err != nil {
+		return false
+	}
+
+	z, err := tx.SigHash(index)
+	if err != nil {
+		return false
+	}
+
+	combinedScript := txIn.ScriptSig.Add(scriptPubkey)
+
+	return combinedScript.Evaluate(z)
+}
+
+// Verify this transaction
+func (tx *Tx) Verify() bool {
+	_, err := tx.Fee()
+	if err != nil {
+		return false
+	}
+
+	for i := range tx.TxIns {
+		if !tx.VerifyInput(uint32(i)) {
+			return false
+		}
+	}
+	return true
+}
+
+func (tx *Tx) SignInput(inputIndex uint32, privateKey *signatureverification.PrivateKey) bool {
+	var compressed = true
+
+	z, err := tx.SigHash(inputIndex)
+	if err != nil {
+		return false
+	}
+
+	derSig, err := privateKey.Sign(z)
+	if err != nil {
+		return false
+	}
+
+	sig := append(derSig.Serialize(), byte(SigHashAll))
+
+	sec := privateKey.Point.Serialize(compressed)
+
+	scriptSig := script.Script{sig, sec}
+
+	tx.TxIns[inputIndex].ScriptSig = scriptSig
+
+	return tx.VerifyInput(inputIndex)
 }
 
 // TxIn represents a transaction input
@@ -275,6 +403,15 @@ func (txIn *TxIn) Value(testnet bool) (uint64, error) {
 	}
 
 	return tx.TxOuts[txIn.PrevIndex].Amount, nil
+}
+
+func (txIn *TxIn) ScriptPubkey(testnet bool) (script.Script, error) {
+	tx, err := txIn.FetchTx(testnet)
+	if err != nil {
+		return nil, err
+	}
+	scriptPubkey := tx.TxOuts[txIn.PrevIndex].ScriptPubkey
+	return scriptPubkey, nil
 }
 
 // TransactionInput represents a transaction input

@@ -339,7 +339,6 @@ func TestAddingtoInf(t *testing.T) {
 	result := p
 	for i := 1; i <= 20; i++ {
 		result, _ = result.Add(p)
-		// fmt.Printf("%d: %s\n", i, result.String())
 	}
 	if !result.Equal(identity) {
 		t.Errorf("Point should be the identity point")
