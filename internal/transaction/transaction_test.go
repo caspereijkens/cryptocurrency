@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/caspereijkens/cryptocurrency/internal/script"
+	"github.com/caspereijkens/cryptocurrency/internal/signatureverification"
+	"github.com/caspereijkens/cryptocurrency/internal/utils"
 )
 
 const (
@@ -234,5 +236,82 @@ func TestTxInPubkey(t *testing.T) {
 	}
 	if !bytes.Equal(have, want) {
 		t.Errorf("ScriptPubkey mismatch. Got %x, want %x", have, want)
+	}
+}
+
+func TestCreateAndSignTransaction(t *testing.T) {
+	expectedHex := "010000000199a24308080ab26e6fb65c4eccfadf76749bb5bfa8cb08f291320b3c21e56f0d0d0000006b4830450221008ed46aa2cf12d6d81065bfabe903670165b538f65ee9a3385e6327d80c66d3b502203124f804410527497329ec4715e18558082d489b218677bd029e7fa306a72236012103935581e52c354cd2f484fe8ed83af7a3097005b2f9c60bff71d35bd795f54b67ffffffff02408af701000000001976a914d52ad7ca9b3d096a38e752c2018e6fbc40cdf26f88ac80969800000000001976a914507b27411ccf7f16f10297de6cef3f291623eddf88ac00000000"
+	prevTx, _ := hex.DecodeString("0d6fe5213c0b3291f208cba8bfb59b7476dffacc4e5cb66f6eb20a080843a299")
+	prevIndex := uint32(13)
+	txIn := NewTxIn(prevTx, prevIndex, script.Script{}, uint32(0xffffffff))
+	changeAmount := uint64(0.33 * 100000000)
+	changeH160, _ := utils.DecodeBase58("mzx5YhAH9kNHtcN481u6WkjeHjYtVeKVh2")
+	changeScript := script.CreateP2pkhScript(changeH160)
+	changeOutput := NewTxOut(changeAmount, changeScript)
+	targetAmount := uint64(0.1 * 100000000)
+	targetH160, _ := utils.DecodeBase58("mnrVtF8DWjMu839VW3rBfgYaAfKk8983Xf")
+	targetScript := script.CreateP2pkhScript(targetH160)
+	targetOutput := NewTxOut(targetAmount, targetScript)
+	tx := NewTx(1, []*TxIn{txIn}, []*TxOut{changeOutput, targetOutput}, 0, true)
+	inputIndex := uint32(0)
+	z, err := tx.SigHash(inputIndex)
+	if err != nil {
+		t.Fatalf("Failed to compute message 'z': %v", err)
+	}
+	privateKey, err := signatureverification.NewPrivateKey(big.NewInt(8675309))
+	if err != nil {
+		t.Fatalf("Failed to create new random private key: %v", err)
+	}
+	signature, err := privateKey.Sign(z)
+	if err != nil {
+		t.Fatalf("Failed to sign message z: %v", err)
+	}
+	der := signature.Serialize()
+	sig := append(der, byte(SigHashAll))
+	sec := privateKey.Point.Serialize(true)
+	scriptSig := script.Script{sig, sec}
+	tx.TxIns[inputIndex].ScriptSig = scriptSig
+	txBytes, err := tx.Serialize()
+	if err != nil {
+		t.Fatalf("Failed to Serialize transaction message z: %v", err)
+	}
+	receivedHex := hex.EncodeToString(txBytes)
+	if receivedHex != expectedHex {
+		t.Fatalf("Something did not go right in signing the transaction.\nExpected: %s\nReceived: %s", expectedHex, receivedHex)
+	}
+}
+
+func TestSignInput(t *testing.T) {
+	// Create a private key with a secret value of 8675309
+	privateKey, _ := signatureverification.NewPrivateKey(big.NewInt(8675309))
+
+	// Create a transaction stream from the hex string
+	txHex := "010000000199a24308080ab26e6fb65c4eccfadf76749bb5bfa8cb08f291320b3c21e56f0d0d00000000ffffffff02408af701000000001976a914d52ad7ca9b3d096a38e752c2018e6fbc40cdf26f88ac80969800000000001976a914507b27411ccf7f16f10297de6cef3f291623eddf88ac00000000"
+	txBytes, err := hex.DecodeString(txHex)
+	if err != nil {
+		t.Fatalf("Failed to decode transaction hex: %v", err)
+	}
+
+	// Create a transaction object from the stream
+	tx, err := ParseTx(bufio.NewReader(bytes.NewReader(txBytes)), true)
+	if err != nil {
+		t.Fatalf("Failed to decode transaction hex: %v", err)
+	}
+
+	// Test signing input at index 0
+	if !tx.SignInput(0, privateKey) {
+		t.Fatal("Failed to sign input")
+	}
+
+	// Expected serialized result after signing
+	wantHex := "010000000199a24308080ab26e6fb65c4eccfadf76749bb5bfa8cb08f291320b3c21e56f0d0d0000006b4830450221008ed46aa2cf12d6d81065bfabe903670165b538f65ee9a3385e6327d80c66d3b502203124f804410527497329ec4715e18558082d489b218677bd029e7fa306a72236012103935581e52c354cd2f484fe8ed83af7a3097005b2f9c60bff71d35bd795f54b67ffffffff02408af701000000001976a914d52ad7ca9b3d096a38e752c2018e6fbc40cdf26f88ac80969800000000001976a914507b27411ccf7f16f10297de6cef3f291623eddf88ac00000000"
+
+	// Compare the serialized result with the expected value
+	gotHex, err := tx.Serialize()
+	if err != nil {
+		t.Fatalf("Failed to serialze transaction to hex: %v", err)
+	}
+	if hex.EncodeToString(gotHex) != wantHex {
+		t.Fatalf("Unexpected serialized result. Got: %s, Want: %s", gotHex, wantHex)
 	}
 }

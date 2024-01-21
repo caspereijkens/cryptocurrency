@@ -195,6 +195,16 @@ func ReadVarint(reader *bufio.Reader) (uint64, error) {
 	}
 }
 
+func Hash256ToBigInt(data string) *big.Int {
+	// First SHA-256 hash
+	hash256 := Hash256([]byte(data))
+
+	// Convert the second hash bytes to a big.Int
+	bigInt := new(big.Int)
+	bigInt.SetBytes(hash256)
+	return bigInt
+}
+
 // readLittleEndianUint16 reads a little-endian uint16 from the reader
 func readLittleEndianUint16(reader *bufio.Reader) (uint64, error) {
 	buf := make([]byte, 2)

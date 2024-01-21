@@ -29,6 +29,7 @@ func (sig *Signature) String() string {
 	return fmt.Sprintf("Signature(%x,%x)", sig.R, sig.S)
 }
 
+// Computes DER
 func (sig *Signature) Serialize() []byte {
 	rSerialized := utils.SerializeInt(sig.R)
 	sSerialized := utils.SerializeInt(sig.S)

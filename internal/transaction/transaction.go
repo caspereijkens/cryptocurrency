@@ -14,6 +14,7 @@ import (
 	"slices"
 
 	"github.com/caspereijkens/cryptocurrency/internal/script"
+	"github.com/caspereijkens/cryptocurrency/internal/signatureverification"
 	"github.com/caspereijkens/cryptocurrency/internal/utils"
 )
 
@@ -262,9 +263,6 @@ func (tx *Tx) VerifyInput(index uint32) bool {
 	}
 
 	combinedScript := txIn.ScriptSig.Add(scriptPubkey)
-	fmt.Println(txIn.ScriptSig.String())
-	fmt.Println(scriptPubkey.String())
-	fmt.Println(combinedScript.String())
 
 	return combinedScript.Evaluate(z)
 }
@@ -282,6 +280,30 @@ func (tx *Tx) Verify() bool {
 		}
 	}
 	return true
+}
+
+func (tx *Tx) SignInput(inputIndex uint32, privateKey *signatureverification.PrivateKey) bool {
+	var compressed = true
+
+	z, err := tx.SigHash(inputIndex)
+	if err != nil {
+		return false
+	}
+
+	derSig, err := privateKey.Sign(z)
+	if err != nil {
+		return false
+	}
+
+	sig := append(derSig.Serialize(), byte(SigHashAll))
+
+	sec := privateKey.Point.Serialize(compressed)
+
+	scriptSig := script.Script{sig, sec}
+
+	tx.TxIns[inputIndex].ScriptSig = scriptSig
+
+	return tx.VerifyInput(inputIndex)
 }
 
 // TxIn represents a transaction input

@@ -235,3 +235,8 @@ func (s *Script) TranslateToOps() []string {
 	}
 	return ops
 }
+
+// Takes a hash160 and returns the p2pkh ScriptPubKey
+func CreateP2pkhScript(h160 []byte) Script {
+	return Script{[]byte{0x76}, []byte{0xa9}, h160, []byte{0x88}, []byte{0xac}}
+}
