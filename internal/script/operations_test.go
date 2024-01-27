@@ -1227,6 +1227,36 @@ func TestOpChecksig(t *testing.T) {
 	}
 }
 
+func TestOpCheckMultisig(t *testing.T) {
+	// doing 2-of-3 multisig
+	z, _ := new(big.Int).SetString("0xe71bfa115715d6fd33796948126f40a8cdd39f187e4afb03896795189fe1423c", 0)
+	sig1, _ := new(big.Int).SetString("0x3045022100dc92655fe37036f47756db8102e0d7d5e28b3beb83a8fef4f5dc0559bddfb94e02205a36d4e4e6c7fcd16658c50783e00c341609977aed3ad00937bf4ee942a8993701", 0)
+	sig2, _ := new(big.Int).SetString("0x3045022100da6bee3c93766232079a01639d07fa869598749729ae323eab8eef53577d611b02207bef15429dcadce2121ea07f233115c6f09034c0be68db99980b9a6c5e75402201", 0)
+	sec1, _ := new(big.Int).SetString("0x022626e955ea6ea6d98850c994f9107b036b1334f18ca8830bfff1295d21cfdb70", 0)
+	sec2, _ := new(big.Int).SetString("0x03b287eaf122eea69030a0e9feed096bed8045c8b98bec453e1ffac7fbdbd4bb71", 0)
+	sec3, _ := new(big.Int).SetString("0x04887387e452b8eacc4acfde10d9aaf7f6d9a0f975aabb10d006e4da568744d06c61de6d95231cd89026e286df3b6ae4a894a3378e393e93a0f45b666329a0ae34", 0)
+
+	stack := Stack{
+		encodeNum(0),
+		sig1.Bytes(),
+		sig2.Bytes(),
+		encodeNum(2),
+		sec1.Bytes(),
+		sec2.Bytes(),
+		sec3.Bytes(),
+		encodeNum(3),
+	}
+
+	result, err := opCheckMultiSig(&stack, z)
+	if !result || err != nil {
+		t.Errorf("opCheckMultisig failed. Expected true, nil; got %v, %v", result, err)
+	}
+
+	if decodeNum(stack[0]) != 1 {
+		t.Errorf("Decoded number mismatch. Expected 1, got %v", decodeNum(stack[0]))
+	}
+}
+
 func TestOpChecksigVerify(t *testing.T) {
 	z, _ := new(big.Int).SetString("0x7c076ff316692a3d7eb3c3bb0f8b1488cf72e1afcd929e29307032997a838a3d", 0)
 	// Test case 1: Test when the stack is empty
