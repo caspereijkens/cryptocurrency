@@ -187,7 +187,9 @@ func (tx *Tx) Fee() (uint64, error) {
 }
 
 // Returns the integer representation of the hash that needs to get signed for index input_index
-func (tx *Tx) SigHash(inputIndex uint32) (*big.Int, error) {
+func (tx *Tx) SigHash(inputIndex uint32, redeemScript *script.Script) (*big.Int, error) {
+	var scriptSig = &script.Script{}
+
 	result := make([]byte, 4)
 	binary.LittleEndian.PutUint32(result, tx.Version)
 
@@ -198,27 +200,18 @@ func (tx *Tx) SigHash(inputIndex uint32) (*big.Int, error) {
 	result = append(result, numInputs...)
 
 	for i, txIn := range tx.TxIns {
-		txInCopy := *txIn
-		if i != int(inputIndex) {
-			txInCopy.ScriptSig = script.Script{}
-			serializedTxIn, err := txInCopy.Serialize()
+		if i == int(inputIndex) {
+			scriptSig, err = getScriptSig(txIn, tx.Testnet, redeemScript)
 			if err != nil {
 				return nil, err
 			}
-			result = append(result, serializedTxIn...)
-			continue
 		}
-		prevTx, err := txInCopy.FetchTx(tx.Testnet)
+		txInModified := NewTxIn(txIn.PrevTx, txIn.PrevIndex, scriptSig, txIn.Sequence)
+		txInModifiedBytes, err := txInModified.Serialize()
 		if err != nil {
 			return nil, err
 		}
-		txInCopy.ScriptSig = prevTx.TxOuts[txInCopy.PrevIndex].ScriptPubkey
-
-		serializedTxIn, err := txInCopy.Serialize()
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, serializedTxIn...)
+		result = append(result, txInModifiedBytes...)
 	}
 
 	numOutputs, err := utils.EncodeVarint(uint64(len(tx.TxOuts)))
@@ -249,15 +242,43 @@ func (tx *Tx) SigHash(inputIndex uint32) (*big.Int, error) {
 	return new(big.Int).SetBytes(resultHash256), nil
 }
 
+func getScriptSig(txIn *TxIn, testnet bool, redeemScript *script.Script) (*script.Script, error) {
+	var scriptSig *script.Script
+	var err error
+
+	if redeemScript == nil {
+		scriptSig, err = txIn.ScriptPubkey(testnet)
+		if err != nil {
+			return nil, err
+		}
+		return scriptSig, nil
+	}
+	return redeemScript, nil
+}
+
 // Returns whether the input has a valid signature
 func (tx *Tx) VerifyInput(index uint32) bool {
+	var redeemScript *script.Script
+
 	txIn := tx.TxIns[index]
 	scriptPubkey, err := txIn.ScriptPubkey(tx.Testnet)
 	if err != nil {
 		return false
 	}
 
-	z, err := tx.SigHash(index)
+	if scriptPubkey.IsP2SHScriptPubKey() {
+		cmd := (*txIn.ScriptSig)[len(*txIn.ScriptSig)-1]
+		varInt, err := utils.EncodeVarint(uint64(len(cmd)))
+		if err != nil {
+			return false
+		}
+		redeemScriptBytes := append(varInt, cmd...)
+		redeemScript, err = script.ParseScript(bufio.NewReader(bytes.NewReader(redeemScriptBytes)))
+		if err != nil {
+			return false
+		}
+	}
+	z, err := tx.SigHash(index, redeemScript)
 	if err != nil {
 		return false
 	}
@@ -285,7 +306,7 @@ func (tx *Tx) Verify() bool {
 func (tx *Tx) SignInput(inputIndex uint32, privateKey *signatureverification.PrivateKey) bool {
 	var compressed = true
 
-	z, err := tx.SigHash(inputIndex)
+	z, err := tx.SigHash(inputIndex, nil)
 	if err != nil {
 		return false
 	}
@@ -301,7 +322,7 @@ func (tx *Tx) SignInput(inputIndex uint32, privateKey *signatureverification.Pri
 
 	scriptSig := script.Script{sig, sec}
 
-	tx.TxIns[inputIndex].ScriptSig = scriptSig
+	tx.TxIns[inputIndex].ScriptSig = &scriptSig
 
 	return tx.VerifyInput(inputIndex)
 }
@@ -310,12 +331,12 @@ func (tx *Tx) SignInput(inputIndex uint32, privateKey *signatureverification.Pri
 type TxIn struct {
 	PrevTx    []byte
 	PrevIndex uint32
-	ScriptSig script.Script
+	ScriptSig *script.Script
 	Sequence  uint32
 }
 
 // NewTxIn creates a new TxIn instance
-func NewTxIn(prevTx []byte, prevIndex uint32, scriptSig script.Script, sequence uint32) *TxIn {
+func NewTxIn(prevTx []byte, prevIndex uint32, scriptSig *script.Script, sequence uint32) *TxIn {
 	return &TxIn{
 		PrevTx:    prevTx,
 		PrevIndex: prevIndex,
@@ -405,7 +426,7 @@ func (txIn *TxIn) Value(testnet bool) (uint64, error) {
 	return tx.TxOuts[txIn.PrevIndex].Amount, nil
 }
 
-func (txIn *TxIn) ScriptPubkey(testnet bool) (script.Script, error) {
+func (txIn *TxIn) ScriptPubkey(testnet bool) (*script.Script, error) {
 	tx, err := txIn.FetchTx(testnet)
 	if err != nil {
 		return nil, err
@@ -417,11 +438,11 @@ func (txIn *TxIn) ScriptPubkey(testnet bool) (script.Script, error) {
 // TransactionInput represents a transaction input
 type TxOut struct {
 	Amount       uint64
-	ScriptPubkey script.Script
+	ScriptPubkey *script.Script
 }
 
 // NewTransactionInput creates a new TxIn instance
-func NewTxOut(amount uint64, scriptPubkey script.Script) *TxOut {
+func NewTxOut(amount uint64, scriptPubkey *script.Script) *TxOut {
 	return &TxOut{
 		Amount:       amount,
 		ScriptPubkey: scriptPubkey,

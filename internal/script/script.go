@@ -2,6 +2,7 @@ package script
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -15,7 +16,7 @@ type Script [][]byte
 
 // ParseScript creates a new Script from a byte slice.
 // OP_PUSHDATA1/2 can be used to group data in a []byte.
-func ParseScript(reader *bufio.Reader) (Script, error) {
+func ParseScript(reader *bufio.Reader) (*Script, error) {
 	length, err := utils.ReadVarint(reader)
 
 	if err != nil {
@@ -62,7 +63,7 @@ func ParseScript(reader *bufio.Reader) (Script, error) {
 		return nil, fmt.Errorf("parsing script failed")
 	}
 
-	return script, nil
+	return &script, nil
 }
 
 func (s *Script) String() string {
@@ -83,17 +84,9 @@ func (s *Script) String() string {
 	return " " + fmt.Sprintf("%v", result)
 }
 
-func (s *Script) Add(otherScript Script) Script {
-	return append(*s, otherScript...)
-}
-
-func (s *Script) Parse(reader *bufio.Reader) error {
-	script, err := ParseScript(reader)
-	if err != nil {
-		return err
-	}
-	*s = script
-	return nil
+func (s *Script) Add(otherScript *Script) *Script {
+	result := append(*s, *otherScript...)
+	return &result
 }
 
 func (s *Script) rawSerialize() ([]byte, error) {
@@ -190,10 +183,41 @@ func (s *Script) Evaluate(z *big.Int) bool {
 			}
 		} else {
 			stack.push(cmd)
+
+			if cmds.IsP2SHScriptPubKey() {
+				h160 := cmds[1]
+				cmds = Script{}
+				ok, err := opHash160(&stack)
+				if !ok || err != nil {
+					return false
+				}
+				stack.push(h160)
+				ok, err = opEqual(&stack)
+				if !ok || err != nil {
+					return false
+				}
+				ok, err = opVerify(&stack)
+				if !ok || err != nil {
+					fmt.Println("bad p2sh h160")
+					return false
+				}
+				scriptLength, err := utils.EncodeVarint(uint64(len(cmd)))
+				if err != nil {
+					fmt.Printf("error parsing redeem script: %v\n", err)
+					return false
+				}
+				redeemScript := append(scriptLength, cmd...)
+				parsedScript, err := ParseScript(bufio.NewReader(bytes.NewReader(redeemScript)))
+				if err != nil {
+					fmt.Printf("error parsing redeem script: %v\n", err)
+					return false
+				}
+				cmds = append(*parsedScript, cmds...)
+			}
 		}
 	}
 
-	if len(stack) == 0 || string((stack)[len(stack)-1]) == "" {
+	if len(stack) == 0 || string(stack[len(stack)-1]) == "" {
 		return false
 	}
 
@@ -236,7 +260,28 @@ func (s *Script) TranslateToOps() []string {
 	return ops
 }
 
+func (s *Script) IsP2PKHScriptPubKey() bool {
+	// Returns whether this follows the
+	// OP_DUP OP_HASH160 <20 byte hash> OP_EQUALVERIFY OP_CHECKSIG pattern.
+	return len(*s) == 5 && bytes.Equal((*s)[0], []byte{0x76}) &&
+		bytes.Equal((*s)[1], []byte{0xa9}) &&
+		len((*s)[2]) == 20 &&
+		(*s)[3][0] == 0x88 && bytes.Equal((*s)[4], []byte{0xac})
+}
+
+func (s *Script) IsP2SHScriptPubKey() bool {
+	// Returns whether this follows the
+	// OP_HASH160 <20 byte hash> OP_EQUAL pattern.
+	return len(*s) == 3 && bytes.Equal((*s)[0], []byte{0xa9}) &&
+		len((*s)[1]) == 20 &&
+		(*s)[2][0] == 0x87
+}
+
 // Takes a hash160 and returns the p2pkh ScriptPubKey
-func CreateP2pkhScript(h160 []byte) Script {
-	return Script{[]byte{0x76}, []byte{0xa9}, h160, []byte{0x88}, []byte{0xac}}
+func CreateP2pkhScript(h160 []byte) *Script {
+	return &Script{[]byte{0x76}, []byte{0xa9}, h160, []byte{0x88}, []byte{0xac}}
+}
+
+func CreateP2SHScript(h160 []byte) *Script {
+	return &Script{[]byte{0xa9}, h160, []byte{0x87}}
 }
