@@ -218,3 +218,14 @@ func TestSha1HashPinata(t *testing.T) {
 		t.Errorf("Combined script does not match. Evalutation resulted in False")
 	}
 }
+
+func TestGenesisBlockScript(t *testing.T) {
+	scriptBytes, _ := hex.DecodeString("4d04ffff001d0104455468652054696d65732030332f4a616e2f32303039204368616e63656c6c6f72206f6e206272696e6b206f66207365636f6e64206261696c6f757420666f722062616e6b73")
+	genesisBlockScript, err := ParseScript(bufio.NewReader(bytes.NewReader(scriptBytes)))
+	if err != nil {
+		t.Errorf("Failed parsing script of genesis block")
+	}
+	if string((*genesisBlockScript)[2]) != "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks" {
+		t.Errorf("Incorrect script")
+	}
+}

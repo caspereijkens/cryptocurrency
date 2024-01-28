@@ -94,7 +94,7 @@ func parseTxIns(ins []string) []*transaction.TxIn {
 			continue
 		}
 
-		txIn := transaction.NewTxIn(txID, uint32(index), script.Script{}, uint32(0xffffffff))
+		txIn := transaction.NewTxIn(txID, uint32(index), &script.Script{}, uint32(0xffffffff))
 		txIns = append(txIns, txIn)
 	}
 

@@ -402,5 +402,53 @@ func TestValidateP2SH(t *testing.T) {
 	if !point.Verify(z, sig) {
 		t.Error("failed to verify second signature")
 	}
+}
+
+func TestTxIsCoinbase(t *testing.T) {
+	testnet = false
+	txBytes, _ := hex.DecodeString("01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff5e03d71b07254d696e656420627920416e74506f6f6c20626a31312f4542312f4144362f43205914293101fabe6d6d678e2c8c34afc36896e7d9402824ed38e856676ee94bfdb0c6c4bcd8b2e5666a0400000000000000c7270000a5e00e00ffffffff01faf20b58000000001976a914338c84849423992471bffb1a54a8d9b1d69dc28a88ac00000000")
+	tx, _ := ParseTx(bufio.NewReader(bytes.NewReader(txBytes)), testnet)
+	if !tx.IsCoinbase() {
+		t.Errorf("Transaction should be coinbase but was not")
+	}
+}
+
+func TestTxCoinBaseHeight(t *testing.T) {
+	testnet = false
+
+	// coinbase transaction with height
+	var expectedHeight = uint32(465879)
+
+	txBytes, _ := hex.DecodeString("01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff5e03d71b07254d696e656420627920416e74506f6f6c20626a31312f4542312f4144362f43205914293101fabe6d6d678e2c8c34afc36896e7d9402824ed38e856676ee94bfdb0c6c4bcd8b2e5666a0400000000000000c7270000a5e00e00ffffffff01faf20b58000000001976a914338c84849423992471bffb1a54a8d9b1d69dc28a88ac00000000")
+	tx, _ := ParseTx(bufio.NewReader(bytes.NewReader(txBytes)), testnet)
+	height, err := tx.CoinbaseHeight()
+	if err != nil {
+		t.Errorf("Failed getting coinbase height")
+	}
+	if height != expectedHeight {
+		t.Errorf("Wrong coinbase height. Expected: %d, Got: %d", expectedHeight, height)
+	}
+
+	// non-coinbase transaction
+	expectedHeight = 0
+	txBytes, _ = hex.DecodeString("0100000001813f79011acb80925dfe69b3def355fe914bd1d96a3f5f71bf8303c6a989c7d1000000006b483045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed01210349fc4e631e3624a545de3f89f5d8684c7b8138bd94bdd531d2e213bf016b278afeffffff02a135ef01000000001976a914bc3b654dca7e56b04dca18f2566cdaf02e8d9ada88ac99c39800000000001976a9141c4bc762dd5423e332166702cb75f40df79fea1288ac19430600")
+	tx, _ = ParseTx(bufio.NewReader(bytes.NewReader(txBytes)), testnet)
+	height, err = tx.CoinbaseHeight()
+	if err == nil {
+		t.Errorf("Failed getting coinbase height")
+	}
+	if height != expectedHeight {
+		t.Errorf("Wrong coinbase height. Expected: %d, Got: %d", expectedHeight, height)
+	}
 
 }
+
+// def test_coinbase_height(self):
+// 	raw_tx = bytes.fromhex('')
+// 	stream = BytesIO(raw_tx)
+// 	tx = Tx.parse(stream)
+// 	self.assertEqual(tx.coinbase_height(), 465879)
+// 	raw_tx = bytes.fromhex('0100000001813f79011acb80925dfe69b3def355fe914bd1d96a3f5f71bf8303c6a989c7d1000000006b483045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed01210349fc4e631e3624a545de3f89f5d8684c7b8138bd94bdd531d2e213bf016b278afeffffff02a135ef01000000001976a914bc3b654dca7e56b04dca18f2566cdaf02e8d9ada88ac99c39800000000001976a9141c4bc762dd5423e332166702cb75f40df79fea1288ac19430600')
+// 	stream = BytesIO(raw_tx)
+// 	tx = Tx.parse(stream)
+// 	self.assertIsNone(tx.coinbase_height())
