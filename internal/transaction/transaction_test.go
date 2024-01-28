@@ -3,6 +3,7 @@ package transaction
 import (
 	"bufio"
 	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"math/big"
 	"testing"
@@ -146,7 +147,7 @@ func TestTxSigHash(t *testing.T) {
 
 	want, _ := new(big.Int).SetString("0x27e0c5994dec7824e56dec6b2fcb342eb7cdb0d0957c2fce9882f715e85d81a6", 0)
 
-	result, err := tx.SigHash(0)
+	result, err := tx.SigHash(0, nil)
 	if err != nil {
 		t.Fatalf("Error calling SigHash: %v", err)
 	}
@@ -219,7 +220,7 @@ func TestTxInPubkey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error fetching ScriptPubkey: %v", err)
 	}
-	txIn := NewTxIn(txInBytes, index, script.Script{}, uint32(0xffffffff))
+	txIn := NewTxIn(txInBytes, index, &script.Script{}, uint32(0xffffffff))
 	scriptPubkey, err := txIn.ScriptPubkey(false)
 	if err != nil {
 		t.Fatalf("Error fetching ScriptPubkey: %v", err)
@@ -243,7 +244,7 @@ func TestCreateAndSignTransaction(t *testing.T) {
 	expectedHex := "010000000199a24308080ab26e6fb65c4eccfadf76749bb5bfa8cb08f291320b3c21e56f0d0d0000006b4830450221008ed46aa2cf12d6d81065bfabe903670165b538f65ee9a3385e6327d80c66d3b502203124f804410527497329ec4715e18558082d489b218677bd029e7fa306a72236012103935581e52c354cd2f484fe8ed83af7a3097005b2f9c60bff71d35bd795f54b67ffffffff02408af701000000001976a914d52ad7ca9b3d096a38e752c2018e6fbc40cdf26f88ac80969800000000001976a914507b27411ccf7f16f10297de6cef3f291623eddf88ac00000000"
 	prevTx, _ := hex.DecodeString("0d6fe5213c0b3291f208cba8bfb59b7476dffacc4e5cb66f6eb20a080843a299")
 	prevIndex := uint32(13)
-	txIn := NewTxIn(prevTx, prevIndex, script.Script{}, uint32(0xffffffff))
+	txIn := NewTxIn(prevTx, prevIndex, &script.Script{}, uint32(0xffffffff))
 	changeAmount := uint64(0.33 * 100000000)
 	changeH160, _ := utils.DecodeBase58("mzx5YhAH9kNHtcN481u6WkjeHjYtVeKVh2")
 	changeScript := script.CreateP2pkhScript(changeH160)
@@ -254,7 +255,7 @@ func TestCreateAndSignTransaction(t *testing.T) {
 	targetOutput := NewTxOut(targetAmount, targetScript)
 	tx := NewTx(1, []*TxIn{txIn}, []*TxOut{changeOutput, targetOutput}, 0, true)
 	inputIndex := uint32(0)
-	z, err := tx.SigHash(inputIndex)
+	z, err := tx.SigHash(inputIndex, nil)
 	if err != nil {
 		t.Fatalf("Failed to compute message 'z': %v", err)
 	}
@@ -270,7 +271,7 @@ func TestCreateAndSignTransaction(t *testing.T) {
 	sig := append(der, byte(SigHashAll))
 	sec := privateKey.Point.Serialize(true)
 	scriptSig := script.Script{sig, sec}
-	tx.TxIns[inputIndex].ScriptSig = scriptSig
+	tx.TxIns[inputIndex].ScriptSig = &scriptSig
 	txBytes, err := tx.Serialize()
 	if err != nil {
 		t.Fatalf("Failed to Serialize transaction message z: %v", err)
@@ -314,4 +315,92 @@ func TestSignInput(t *testing.T) {
 	if hex.EncodeToString(gotHex) != wantHex {
 		t.Fatalf("Unexpected serialized result. Got: %s, Want: %s", gotHex, wantHex)
 	}
+}
+
+func TestValidateP2SH(t *testing.T) {
+	txHex := "0100000001868278ed6ddfb6c1ed3ad5f8181eb0c7a385aa0836f01d5e4789e6bd304d87221a000000db00483045022100dc92655fe37036f47756db8102e0d7d5e28b3beb83a8fef4f5dc0559bddfb94e02205a36d4e4e6c7fcd16658c50783e00c341609977aed3ad00937bf4ee942a8993701483045022100da6bee3c93766232079a01639d07fa869598749729ae323eab8eef53577d611b02207bef15429dcadce2121ea07f233115c6f09034c0be68db99980b9a6c5e75402201475221022626e955ea6ea6d98850c994f9107b036b1334f18ca8830bfff1295d21cfdb702103b287eaf122eea69030a0e9feed096bed8045c8b98bec453e1ffac7fbdbd4bb7152aeffffffff04d3b11400000000001976a914904a49878c0adfc3aa05de7afad2cc15f483a56a88ac7f400900000000001976a914418327e3f3dda4cf5b9089325a4b95abdfa0334088ac722c0c00000000001976a914ba35042cfe9fc66fd35ac2224eebdafd1028ad2788acdc4ace020000000017a91474d691da1574e6b3c192ecfb52cc8984ee7b6c568700000000"
+	txBytes, err := hex.DecodeString(txHex)
+	if err != nil {
+		t.Fatalf("Failed to decode transaction hex: %v", err)
+	}
+
+	tx, err := ParseTx(bufio.NewReader(bytes.NewReader(txBytes)), false)
+	if err != nil {
+		t.Fatalf("Failed to decode parse tx: %v", err)
+	}
+
+	redeemScriptBytes, err := hex.DecodeString("475221022626e955ea6ea6d98850c994f9107b036b1334f18ca8830bfff1295d21cfdb702103b287eaf122eea69030a0e9feed096bed8045c8b98bec453e1ffac7fbdbd4bb7152ae")
+	if err != nil {
+		t.Fatalf("Failed to decode redeemscript hex: %v", err)
+	}
+	redeemScript, err := script.ParseScript(bufio.NewReader(bytes.NewReader(redeemScriptBytes)))
+	if err != nil {
+		t.Fatalf("Failed to parse script: %v", err)
+	}
+
+	tx.TxIns[0].ScriptSig = redeemScript
+
+	modifiedTx, err := tx.Serialize()
+	if err != nil {
+		t.Fatalf("Failed to serialize script: %v", err)
+	}
+
+	sigHashBytes := make([]byte, 4)
+	binary.LittleEndian.PutUint32(sigHashBytes, SigHashAll)
+	modifiedTx = append(modifiedTx, sigHashBytes...)
+
+	h256 := utils.Hash256(modifiedTx)
+
+	z := new(big.Int).SetBytes(h256)
+
+	// First signature
+	sec, err := hex.DecodeString("022626e955ea6ea6d98850c994f9107b036b1334f18ca8830bfff1295d21cfdb70")
+	if err != nil {
+		t.Fatalf("Failed to decode sec hex: %v", err)
+	}
+
+	der, err := hex.DecodeString("3045022100dc92655fe37036f47756db8102e0d7d5e28b3beb83a8fef4f5dc0559bddfb94e02205a36d4e4e6c7fcd16658c50783e00c341609977aed3ad00937bf4ee942a89937")
+	if err != nil {
+		t.Fatalf("Failed to decode der hex: %v", err)
+	}
+
+	point, err := signatureverification.ParseSEC(sec)
+	if err != nil {
+		t.Fatalf("Failed to parse sec: %v", err)
+	}
+
+	sig, err := signatureverification.ParseDER(der)
+	if err != nil {
+		t.Fatalf("Failed to parse der: %v", err)
+	}
+
+	if !point.Verify(z, sig) {
+		t.Error("failed to verify firs signature")
+	}
+
+	// Second signature
+	sec, err = hex.DecodeString("03b287eaf122eea69030a0e9feed096bed8045c8b98bec453e1ffac7fbdbd4bb71")
+	if err != nil {
+		t.Fatalf("Failed to decode sec hex: %v", err)
+	}
+
+	der, err = hex.DecodeString("3045022100da6bee3c93766232079a01639d07fa869598749729ae323eab8eef53577d611b02207bef15429dcadce2121ea07f233115c6f09034c0be68db99980b9a6c5e754022")
+	if err != nil {
+		t.Fatalf("Failed to decode der hex: %v", err)
+	}
+
+	point, err = signatureverification.ParseSEC(sec)
+	if err != nil {
+		t.Fatalf("Failed to parse sec: %v", err)
+	}
+
+	sig, err = signatureverification.ParseDER(der)
+	if err != nil {
+		t.Fatalf("Failed to parse der: %v", err)
+	}
+
+	if !point.Verify(z, sig) {
+		t.Error("failed to verify second signature")
+	}
+
 }

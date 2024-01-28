@@ -16,7 +16,7 @@ func TestNewScript(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    []byte
-		expected Script
+		expected *Script
 		wantErr  bool
 	}{
 		{
@@ -28,25 +28,25 @@ func TestNewScript(t *testing.T) {
 		{
 			name:     "Valid script with just chars",
 			input:    []byte{0x04, 't', 'e', 's', 't'},
-			expected: Script{[]byte{'t'}, []byte{'e'}, []byte{'s'}, []byte{'t'}},
+			expected: &Script{[]byte{'t'}, []byte{'e'}, []byte{'s'}, []byte{'t'}},
 			wantErr:  false,
 		},
 		{
 			name:     "Valid script with OP_PUSHDATA1",
 			input:    []byte{0x06, 0x4C, 0x04, 't', 'e', 's', 't'},
-			expected: Script{[]byte{'t', 'e', 's', 't'}},
+			expected: &Script{[]byte{'t', 'e', 's', 't'}},
 			wantErr:  false,
 		},
 		{
 			name:     "Valid script with OP_PUSHDATA2",
 			input:    []byte{0x05, 0x4D, 0x02, 0x00, 'a', 'b'},
-			expected: Script{[]byte{'a', 'b'}},
+			expected: &Script{[]byte{'a', 'b'}},
 			wantErr:  false,
 		},
 		{
 			name:     "Valid script with OP_PUSHDATA2 (case showcasing pushdata2)",
 			input:    []byte{0x06, 0x4D, 0x02, 0x00, 'c', 'd', 'e'},
-			expected: Script{[]byte{'c', 'd'}, []byte{'e'}},
+			expected: &Script{[]byte{'c', 'd'}, []byte{'e'}},
 			wantErr:  false,
 		},
 		// Add more test cases as needed
@@ -79,13 +79,13 @@ func TestScriptParsing(t *testing.T) {
 	}
 
 	wantCmd1, _ := hex.DecodeString("304402207899531a52d59a6de200179928ca900254a36b8dff8bb75f5f5d71b1cdc26125022008b422690b8461cb52c3cc30330b23d574351872b7c361e9aae3649071c1a71601")
-	if !bytes.Equal(script[0], wantCmd1) {
-		t.Errorf("Script.Parse() cmds[0] = %x, want %x", script[0], wantCmd1)
+	if !bytes.Equal((*script)[0], wantCmd1) {
+		t.Errorf("ParseScript() cmds[0] = %x, want %x", (*script)[0], wantCmd1)
 	}
 
 	wantCmd2, _ := hex.DecodeString("035d5c93d9ac96881f19ba1f686f15f009ded7c62efe85a872e6a19b43c15a2937")
-	if !bytes.Equal(script[1], wantCmd2) {
-		t.Errorf("Script.Parse() cmds[1] = %x, want %x", script[1], wantCmd2)
+	if !bytes.Equal((*script)[1], wantCmd2) {
+		t.Errorf("ParseScript() cmds[1] = %x, want %x", (*script)[1], wantCmd2)
 	}
 
 	scriptPubKeyHex = "6b483045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed01210349fc4e631e3624a545de3f89f5d8684c7b8138bd94bdd531d2e213bf016b278a"
@@ -98,13 +98,13 @@ func TestScriptParsing(t *testing.T) {
 	}
 
 	wantCmd1, _ = hex.DecodeString("3045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed01")
-	if !bytes.Equal(script[0], wantCmd1) {
-		t.Errorf("Script.Parse() cmds[0] = %x, want %x", script[0], wantCmd1)
+	if !bytes.Equal((*script)[0], wantCmd1) {
+		t.Errorf("ParseScript() cmds[0] = %x, want %x", (*script)[0], wantCmd1)
 	}
 
 	wantCmd2, _ = hex.DecodeString("0349fc4e631e3624a545de3f89f5d8684c7b8138bd94bdd531d2e213bf016b278a")
-	if !bytes.Equal(script[1], wantCmd2) {
-		t.Errorf("Script.Parse() cmds[1] = %x, want %x", script[1], wantCmd2)
+	if !bytes.Equal((*script)[1], wantCmd2) {
+		t.Errorf("ParseScript() cmds[1] = %x, want %x", (*script)[1], wantCmd2)
 	}
 }
 
@@ -112,8 +112,7 @@ func TestSerialize(t *testing.T) {
 	want := "6a47304402207899531a52d59a6de200179928ca900254a36b8dff8bb75f5f5d71b1cdc26125022008b422690b8461cb52c3cc30330b23d574351872b7c361e9aae3649071c1a7160121035d5c93d9ac96881f19ba1f686f15f009ded7c62efe85a872e6a19b43c15a2937"
 	wantBytes, _ := hex.DecodeString(want)
 
-	var script Script
-	err := script.Parse(bufio.NewReader(bytes.NewBuffer(wantBytes)))
+	script, err := ParseScript(bufio.NewReader(bytes.NewBuffer(wantBytes)))
 	if err != nil {
 		t.Errorf("Failed to parse script: %v", err)
 		return
@@ -138,7 +137,7 @@ func TestPayToPubKeyExample(t *testing.T) {
 	sig, _ := hex.DecodeString("3045022000eff69ef2b1bd93a66ed5219add4fb51e11a840f404876325a1e8ffe0529a2c022100c7207fee197d27c618aea621406f6bf5ef6fca38681d82b2f06fddbdce6feab601")
 	pubkeyScript := Script{sec, []byte{0xac}}
 	sigScript := Script{sig}
-	combinedScript := sigScript.Add(pubkeyScript)
+	combinedScript := sigScript.Add(&pubkeyScript)
 	if ok := combinedScript.Evaluate(z); !ok {
 		t.Errorf("Combined script does not match. Evalutation resulted in False")
 	}
@@ -146,7 +145,7 @@ func TestPayToPubKeyExample(t *testing.T) {
 	// Just to prove that it really works, on purpose faulty signature:
 	falseSig, _ := hex.DecodeString("3045022000eaa69ef2b1bd93a66ed5219add4fb51e11a840f404876325a1e8ffe0529a2c022100c7207fee197d27c618aea621406f6bf5ef6fca38681d82b2f06fddbdce6feab601")
 	falseSigScript := Script{falseSig}
-	combinedScript = falseSigScript.Add(pubkeyScript)
+	combinedScript = falseSigScript.Add(&pubkeyScript)
 	if ok := combinedScript.Evaluate(z); ok {
 		t.Errorf("Combined script should have failed. Evalutation resulted in True")
 	}
@@ -157,7 +156,7 @@ func TestSomeArbitraryPrograms(t *testing.T) {
 	// 4 + 5 = 9
 	pubkeyScript1 := Script{[]byte{0x55}, []byte{0x93}, []byte{0x59}, []byte{0x87}}
 	sigScript1 := Script{[]byte{0x54}}
-	combinedScript1 := sigScript1.Add(pubkeyScript1)
+	combinedScript1 := sigScript1.Add(&pubkeyScript1)
 	if ok := combinedScript1.Evaluate(nil); !ok {
 		t.Errorf("Combined script does not match. Evalutation resulted in False")
 	}
@@ -165,7 +164,7 @@ func TestSomeArbitraryPrograms(t *testing.T) {
 	// 2 + 2^2 = 6
 	pubkeyScript2 := Script{[]byte{0x76}, []byte{0x76}, []byte{0x95}, []byte{0x93}, []byte{0x56}, []byte{0x87}}
 	sigScript2 := Script{[]byte{0x52}}
-	combinedScript2 := sigScript2.Add(pubkeyScript2)
+	combinedScript2 := sigScript2.Add(&pubkeyScript2)
 	if ok := combinedScript2.Evaluate(nil); !ok {
 		t.Errorf("Combined script does not match. Evalutation resulted in False")
 	}

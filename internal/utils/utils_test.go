@@ -385,3 +385,57 @@ func compareSlices(slice1, slice2 []byte) bool {
 	}
 	return true
 }
+
+func TestH160P2PKHAddress(t *testing.T) {
+	h160, _ := hex.DecodeString("74d691da1574e6b3c192ecfb52cc8984ee7b6c56")
+
+	// Testnet
+	wantTestnet := "mrAjisaT4LXL5MzE81sfcDYKU3wqWSvf9q"
+	if got := H160ToP2PKHAddress(h160, true); got != wantTestnet {
+		t.Errorf("Testnet Address mismatch. Got: %s, Want: %s", got, wantTestnet)
+	}
+
+	// Mainnet
+	wantMainnet := "1BenRpVUFK65JFWcQSuHnJKzc4M8ZP8Eqa"
+	if got := H160ToP2PKHAddress(h160, false); got != wantMainnet {
+		t.Errorf("Mainnet Address mismatch. Got: %s, Want: %s", got, wantMainnet)
+	}
+}
+
+func TestH160P2SHAddress(t *testing.T) {
+	h160, _ := hex.DecodeString("74d691da1574e6b3c192ecfb52cc8984ee7b6c56")
+
+	// Testnet
+	wantTestnet := "2N3u1R6uwQfuobCqbCgBkpsgBxvr1tZpe7B"
+	if got := H160ToP2SHAddress(h160, true); got != wantTestnet {
+		t.Errorf("Testnet Address mismatch. Got: %s, Want: %s", got, wantTestnet)
+	}
+
+	// Mainnet
+	wantMainnet := "3CLoMMyuoDQTPRD3XYZtCvgvkadrAdvdXh"
+	if got := H160ToP2SHAddress(h160, false); got != wantMainnet {
+		t.Errorf("Mainnet Address mismatch. Got: %s, Want: %s", got, wantMainnet)
+	}
+}
+
+func TestEncodeBase58Checksum(t *testing.T) {
+	data := []byte("test data")
+	expected := "AhJcBpxGTdcFgo5QuA"
+
+	actual := EncodeBase58Checksum(data)
+
+	if actual != expected {
+		t.Errorf("EncodeBase58Checksum() returned incorrect result, got: %s, want: %s.", actual, expected)
+	}
+}
+
+func TestHash256(t *testing.T) {
+	data := []byte("test data")
+	expected := []byte{130, 73, 121, 237, 233, 89, 254, 254, 83, 8, 43, 193, 69, 2, 248, 191, 4, 29, 83, 153, 127, 251, 101, 203, 190, 58, 222, 88, 3, 247, 251, 118}
+
+	actual := Hash256(data)
+
+	if !bytes.Equal(actual, expected) {
+		t.Errorf("Hash256() returned incorrect result, got: %v, want: %v.", actual, expected)
+	}
+}

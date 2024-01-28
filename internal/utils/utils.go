@@ -39,7 +39,6 @@ func EncodeBase58(s []byte) string {
 	return string(append(prefix, result...))
 }
 
-// TODO Make unit test
 func EncodeBase58Checksum(data []byte) string {
 	// Calculate the hash256
 	hash256 := Hash256(data)
@@ -68,7 +67,6 @@ func DecodeBase58(s string) ([]byte, error) {
 	return combined[1:21], nil
 }
 
-// TODO Make unit test
 func Hash256(data []byte) []byte {
 	sha256Digest := Sha256Hash(data)
 	return Sha256Hash(sha256Digest)
@@ -233,4 +231,32 @@ func readLittleEndianUint64(reader *bufio.Reader) (uint64, error) {
 		return 0, err
 	}
 	return binary.LittleEndian.Uint64(buf), nil
+}
+
+func H160ToP2PKHAddress(h160 []byte, testnet bool) string {
+	var prefix []byte
+
+	if testnet {
+		prefix = []byte{0x6f}
+	} else {
+		prefix = []byte{0x00}
+	}
+
+	payload := append(prefix, h160...)
+
+	return EncodeBase58Checksum(payload)
+}
+
+func H160ToP2SHAddress(h160 []byte, testnet bool) string {
+	var prefix []byte
+
+	if testnet {
+		prefix = []byte{0xc4}
+	} else {
+		prefix = []byte{0x05}
+	}
+
+	payload := append(prefix, h160...)
+
+	return EncodeBase58Checksum(payload)
 }

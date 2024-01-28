@@ -1046,16 +1046,105 @@ func opCheckSig(stack *Stack, z *big.Int) (bool, error) {
 }
 
 func opCheckSigVerify(stack *Stack, z *big.Int) (bool, error) {
-	resultChecksig, err := opCheckSig(stack, z)
+	resultCheckSig, err := opCheckSig(stack, z)
 
-	if err != nil || !resultChecksig {
+	if err != nil || !resultCheckSig {
 		return false, err
 	}
 
 	return opVerify(stack)
 }
 
-// TODO: opCheckmultisig, opCheckmultisigVerify
+// opCheckMultiSig implements the OP_CHECKMULTISIG operation in Go.
+func opCheckMultiSig(stack *Stack, z *big.Int) (bool, error) {
+	var secPubKey *signatureverification.S256Point
+	var numOk int
+
+	if len(*stack) < 1 {
+		return false, fmt.Errorf("not enough elements in stack: %d < 1", len(*stack))
+	}
+
+	numPubKeysEncoded, err := stack.pop(-1)
+	if err != nil {
+		return false, err
+	}
+
+	numPubKeys := decodeNum(numPubKeysEncoded)
+
+	if len(*stack) < numPubKeys+1 {
+		return false, fmt.Errorf("not enough elements in stack for public keys")
+	}
+
+	secPubKeys := make([]*signatureverification.S256Point, numPubKeys)
+	for i := 0; i < int(numPubKeys); i++ {
+		secPubkeyEncoded, err := stack.pop(-1)
+		if err != nil {
+			return false, err
+		}
+		secPubKeys[i], err = signatureverification.ParseSEC(secPubkeyEncoded)
+		if err != nil {
+			return false, err
+		}
+	}
+
+	numSigsEncoded, err := stack.pop(-1)
+	if err != nil {
+		return false, err
+	}
+
+	numSigs := decodeNum(numSigsEncoded)
+
+	if len(*stack) < numSigs+1 {
+		return false, fmt.Errorf("not enough elements in stack for signatures")
+	}
+
+	derSignatures := make([]*signatureverification.Signature, numSigs)
+	for i := 0; i < int(numSigs); i++ {
+		derSignatureBytes, err := stack.pop(-1)
+		if err != nil {
+			return false, err
+		}
+		// Remove the last byte of the signature (hash type)
+		derSignatures[i], err = signatureverification.ParseDER(derSignatureBytes[:len(derSignatureBytes)-1])
+		if err != nil {
+			return false, err
+		}
+	}
+
+	// Pop the extra element from the stack (due to the OP_CHECKMULTISIG off-by-one bug)
+	_, err = stack.pop(-1)
+	if err != nil {
+		return false, err
+	}
+
+	for _, sig := range derSignatures {
+		for len(secPubKeys) > 0 {
+			secPubKey, secPubKeys = secPubKeys[0], secPubKeys[1:]
+			if !secPubKey.Verify(z, sig) {
+				continue
+			}
+			numOk += 1
+			break
+		}
+	}
+	if numOk < numSigs {
+		op0(stack)
+		return false, fmt.Errorf("no matching public key point for signature")
+	}
+
+	op1(stack)
+	return true, nil
+}
+
+func opCheckMultiSigVerify(stack *Stack, z *big.Int) (bool, error) {
+	resultCheckMultiSig, err := opCheckMultiSig(stack, z)
+
+	if err != nil || !resultCheckMultiSig {
+		return false, err
+	}
+
+	return opVerify(stack)
+}
 
 func opCheckLockTimeVerify(stack *Stack, locktime, sequence int) (bool, error) {
 	if sequence == 0xffffffff {
@@ -1227,8 +1316,8 @@ var OpCodeFunctions = map[int]interface{}{
 	170: opHash256,
 	172: opCheckSig,
 	173: opCheckSigVerify,
-	// 174: opCheckMultiSig,
-	// 175: opCheckMultiSigVerify,
+	174: opCheckMultiSig,
+	175: opCheckMultiSigVerify,
 	176: opNop,
 	177: opCheckLockTimeVerify,
 	178: opCheckSequenceVerify,
