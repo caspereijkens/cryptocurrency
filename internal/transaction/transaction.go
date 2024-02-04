@@ -327,6 +327,44 @@ func (tx *Tx) SignInput(inputIndex uint32, privateKey *signatureverification.Pri
 	return tx.VerifyInput(inputIndex)
 }
 
+func (tx *Tx) IsCoinbase() bool {
+	if len(tx.TxIns) != 1 {
+		return false
+	}
+
+	firstInput := tx.TxIns[0]
+
+	if !bytes.Equal(firstInput.PrevTx, make([]byte, 32)) {
+		return false
+	}
+
+	if firstInput.PrevIndex != 0xffffffff {
+		return false
+	}
+
+	return true
+}
+
+func (tx *Tx) CoinbaseHeight() (uint32, error) {
+	if !tx.IsCoinbase() {
+		return 0, fmt.Errorf("not a coinbase transaction")
+	}
+
+	if len(*tx.TxIns[0].ScriptSig) == 0 {
+		return 0, fmt.Errorf("coinbase transaction has no script")
+	}
+
+	element := (*tx.TxIns[0].ScriptSig)[0]
+
+	for len(element) < 4 {
+		element = append(element, 0)
+	}
+
+	height := binary.LittleEndian.Uint32(element)
+
+	return height, nil
+}
+
 // TxIn represents a transaction input
 type TxIn struct {
 	PrevTx    []byte

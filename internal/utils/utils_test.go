@@ -79,7 +79,7 @@ func TestLstripNullBytes(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		result := lstripNullBytes(testCase.input)
+		result := LstripNullBytes(testCase.input)
 
 		if !reflect.DeepEqual(result, testCase.expected) {
 			t.Errorf("lstripNullBytes(%v) = %v, expected %v", testCase.input, result, testCase.expected)
@@ -437,5 +437,24 @@ func TestHash256(t *testing.T) {
 
 	if !bytes.Equal(actual, expected) {
 		t.Errorf("Hash256() returned incorrect result, got: %v, want: %v.", actual, expected)
+	}
+}
+
+func TestReverseBytes(t *testing.T) {
+	// Test cases
+	tests := []struct {
+		input    []byte
+		expected []byte
+	}{
+		{[]byte{1, 2, 3, 4, 5}, []byte{5, 4, 3, 2, 1}},
+		{[]byte{9, 8, 7, 6, 5, 4, 3, 2, 1}, []byte{1, 2, 3, 4, 5, 6, 7, 8, 9}},
+		{[]byte{}, []byte{}}, // Test empty slice
+	}
+
+	for _, test := range tests {
+		result := ReverseBytes(test.input)
+		if !reflect.DeepEqual(result, test.expected) {
+			t.Errorf("ReverseBytes(%v) = %v, want %v", test.input, result, test.expected)
+		}
 	}
 }

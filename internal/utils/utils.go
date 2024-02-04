@@ -83,7 +83,7 @@ func SerializeInt(i *big.Int) []byte {
 	bytes := i.FillBytes(make([]byte, 32))
 
 	// Trim leading null bytes
-	bytes = lstripNullBytes(bytes)
+	bytes = LstripNullBytes(bytes)
 
 	// Add a null byte if the high bit is set
 	if len(bytes) > 0 && bytes[0]&0x80 != 0 {
@@ -98,8 +98,8 @@ func SerializeInt(i *big.Int) []byte {
 	return bytes
 }
 
-// lstripNullBytes trims leading null bytes from a byte slice
-func lstripNullBytes(data []byte) []byte {
+// LstripNullBytes trims leading null bytes from a byte slice
+func LstripNullBytes(data []byte) []byte {
 	var i int
 	for i = 0; i < len(data); i++ {
 		if data[i] != 0 {
@@ -259,4 +259,12 @@ func H160ToP2SHAddress(h160 []byte, testnet bool) string {
 	payload := append(prefix, h160...)
 
 	return EncodeBase58Checksum(payload)
+}
+
+func ReverseBytes(data []byte) []byte {
+	for i := 0; i < len(data)/2; i++ {
+		j := len(data) - i - 1
+		data[i], data[j] = data[j], data[i]
+	}
+	return data
 }
